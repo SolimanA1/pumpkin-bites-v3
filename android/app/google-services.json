@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "755037480980",
+    "project_id": "pumpkin-bites-jvouko",
+    "storage_bucket": "pumpkin-bites-jvouko.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755037480980:android:1565f291bef77626f91f01",
+        "android_client_info": {
+          "package_name": "com.example.pumpkin_bites_new"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "755037480980-m0j297866meu1t2cbl2bh4qdt00jjcnu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwxhvFhBfJfEpV07Bz3600Blz64vSnhyM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "755037480980-m0j297866meu1t2cbl2bh4qdt00jjcnu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "755037480980-ao5mg8255ser6olop92l9qlve3us2kk1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.pumpkinBitesNew"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755037480980:android:6ee7767bacecbc2df91f01",
+        "android_client_info": {
+          "package_name": "com.mycompany.pumpkinbites"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "755037480980-5pcsmbfv4r23fm7vjvdol3fqofk5144g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mycompany.pumpkinbites",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "755037480980-m0j297866meu1t2cbl2bh4qdt00jjcnu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwxhvFhBfJfEpV07Bz3600Blz64vSnhyM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "755037480980-m0j297866meu1t2cbl2bh4qdt00jjcnu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "755037480980-ao5mg8255ser6olop92l9qlve3us2kk1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.pumpkinBitesNew"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
