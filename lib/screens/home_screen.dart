@@ -20,48 +20,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isRefreshing = false;
   String _errorMessage = '';
   Timer? _refreshTimer;
-  bool _isPremium = false;
+  bool _isPremium = true; // Always set to true to allow access to all content
 
   @override
   void initState() {
     super.initState();
-    _checkPremiumStatus();
     _loadContent();
     _startContentRefreshTimer();
-  }
-
-  Future<void> _checkPremiumStatus() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) return;
-
-      final userData = userDoc.data();
-      if (userData == null) return;
-
-      final isPremium = userData['isPremium'] as bool? ?? false;
-      final membershipEndDate = userData['membershipEndDate'] as Timestamp?;
-
-      // If premium and no end date, it's a lifetime membership
-      if (isPremium && membershipEndDate == null) {
-        setState(() {
-          _isPremium = true;
-        });
-        return;
-      }
-
-      // If premium, check if membership is still active
-      if (isPremium && membershipEndDate != null) {
-        final isStillActive = DateTime.now().isBefore(membershipEndDate.toDate());
-        setState(() {
-          _isPremium = isStillActive;
-        });
-      }
-    } catch (e) {
-      print('Error checking premium status: $e');
-    }
   }
 
   void _startContentRefreshTimer() {
@@ -119,39 +84,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToPlayer(BiteModel bite) {
-    if (bite.isPremiumOnly && !_isPremium) {
-      _showPremiumRequiredDialog();
-      return;
-    }
+    // Always navigate to player without any premium checks
     Navigator.of(context).pushNamed('/player', arguments: bite);
-  }
-
-  void _showPremiumRequiredDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Premium Content'),
-        content: const Text(
-          'This content is only available to premium members. Upgrade to access all content.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Navigate to upgrade screen
-              // TODO: Implement premium upgrade
-            },
-            child: const Text('Upgrade'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _navigateToLibrary() {
@@ -590,43 +524,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.library_books),
-            label: 'Library',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Community',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on Home
-              break;
-            case 1:
-              _navigateToLibrary();
-              break;
-            case 2:
-              _navigateToDinnerTable();
-              break;
-            case 3:
-              _navigateToProfile();
-              break;
-          }
-        },
-      ),
     );
   }
 

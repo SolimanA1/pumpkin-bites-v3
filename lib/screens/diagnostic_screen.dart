@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import '../models/bite_model.dart';
 
 class DiagnosticScreen extends StatefulWidget {
   const DiagnosticScreen({Key? key}) : super(key: key);
@@ -16,6 +17,27 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
   
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Controllers for creating a new bite
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _audioUrlController = TextEditingController(
+    text: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+  );
+  final TextEditingController _thumbnailUrlController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController(
+    text: 'Test Category'
+  );
+  
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _audioUrlController.dispose();
+    _thumbnailUrlController.dispose();
+    _categoryController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +65,16 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
+                    onPressed: _isRunning ? null : _createTestBite,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    child: const Text('Create Test Bite'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
                     onPressed: _isRunning ? null : _runGiftDiagnostics,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
@@ -58,42 +90,6 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                       backgroundColor: Colors.green,
                     ),
                     child: const Text('Check Audio'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isRunning ? null : _repairGiftedEpisodes,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                    child: const Text('Repair Gifts'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isRunning ? null : _fixAwaitingGifts,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                    ),
-                    child: const Text('Fix Awaiting Gifts'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isRunning ? null : _addGiftManually,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                    ),
-                    child: const Text('Add Gift Manually'),
                   ),
                 ),
               ],
@@ -128,6 +124,11 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                   ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _isRunning ? null : () => _showCreateBiteDialog(context),
+        child: const Icon(Icons.add),
+        tooltip: 'Create New Bite',
       ),
     );
   }
@@ -228,7 +229,7 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
         }
       }
       
-      // Check user's gifted episodes - FIXED VERSION
+      // Check user's gifted episodes
       try {
         final data = userDoc.data() ?? {};
         final giftedEpisodesRaw = data['giftedEpisodes'];
@@ -337,198 +338,146 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
     }
   }
 
-  Future<void> _repairGiftedEpisodes() async {
-    setState(() {
-      _isRunning = true;
-    });
-
-    try {
-      _log('Starting gifted episodes repair...');
-      
-      // Check current user
-      final user = _auth.currentUser;
-      if (user == null) {
-        _log('[ERROR] No user logged in');
-        return;
-      }
-      
-      _log('Current user: ${user.email} (${user.uid})');
-      
-      // Check user document
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) {
-        _log('[ERROR] User document does not exist');
-        return;
-      }
-      
-      _log('User document exists');
-      
-      // Replace the giftedEpisodes array with a valid structure
-      _log('Replacing giftedEpisodes with a valid structure...');
-      
-      try {
-        await _firestore.collection('users').doc(user.uid).update({
-          'giftedEpisodes': []
-        });
-        _log('[SUCCESS] Reset giftedEpisodes to an empty array');
-        
-        // Scan for any gifts and add them properly
-        final giftsQuery = await _firestore
-            .collection('gifts')
-            .where('recipientEmail', isEqualTo: user.email)
-            .where('type', isEqualTo: 'episode')
-            .get();
-        
-        _log('Found ${giftsQuery.docs.length} episode gifts to restore');
-        
-        for (final doc in giftsQuery.docs) {
-          final data = doc.data();
-          try {
-            // Use Timestamp.now() instead of FieldValue.serverTimestamp()
-            final timestamp = Timestamp.now();
-            
-            final giftedEpisode = {
-              'giftId': doc.id,
-              'biteId': data['biteId'],
-              'senderUid': data['senderUid'],
-              'senderName': data['senderName'],
-              'receivedAt': timestamp,
-            };
-            
-            await _firestore.collection('users').doc(user.uid).update({
-              'giftedEpisodes': FieldValue.arrayUnion([giftedEpisode]),
-            });
-            
-            _log('[SUCCESS] Restored gift: ${doc.id}');
-          } catch (e) {
-            _log('[ERROR] Failed to restore gift ${doc.id}: $e');
-          }
-        }
-      } catch (e) {
-        _log('[ERROR] Failed to reset giftedEpisodes: $e');
-      }
-      
-      _log('Repair completed');
-    } catch (e) {
-      _log('[ERROR] Exception during repair: $e');
-    } finally {
-      setState(() {
-        _isRunning = false;
-      });
-    }
+  void _showCreateBiteDialog(BuildContext context) {
+    // Create a test bite
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Test Bite'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  hintText: 'Enter bite title',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'Enter bite description',
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _audioUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Audio URL',
+                  hintText: 'Enter audio URL',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _thumbnailUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Thumbnail URL (optional)',
+                  hintText: 'Enter thumbnail URL',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _categoryController,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  hintText: 'Enter category',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _createTestBite();
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
   }
-  
-  // New function to fix awaiting gifts 
-  Future<void> _fixAwaitingGifts() async {
+
+  Future<void> _createTestBite() async {
     setState(() {
       _isRunning = true;
     });
 
     try {
-      _log('Starting to fix awaiting gifts...');
+      _log('Creating test bite...');
       
-      // Check current user
+      final String title = _titleController.text.trim().isNotEmpty 
+          ? _titleController.text.trim() 
+          : 'Test Bite ${DateTime.now().millisecondsSinceEpoch}';
+          
+      final String description = _descriptionController.text.trim().isNotEmpty 
+          ? _descriptionController.text.trim() 
+          : 'This is a test bite created for debugging purposes. Use this to test player functionality.';
+          
+      final String audioUrl = _audioUrlController.text.trim().isNotEmpty 
+          ? _audioUrlController.text.trim() 
+          : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+          
+      final String thumbnailUrl = _thumbnailUrlController.text.trim();
+      
+      final String category = _categoryController.text.trim().isNotEmpty 
+          ? _categoryController.text.trim() 
+          : 'Test';
+      
+      // Create bite document
+      final biteData = {
+        'title': title,
+        'description': description,
+        'audioUrl': audioUrl,
+        'thumbnailUrl': thumbnailUrl,
+        'category': category,
+        'authorName': 'Test Author',
+        'date': Timestamp.now(),
+        'duration': 180, // 3 minutes
+        'isPremium': false,
+        'isPremiumOnly': false,
+        'dayNumber': DateTime.now().day,
+        'commentCount': 0,
+      };
+      
+      final docRef = await _firestore.collection('bites').add(biteData);
+      
+      _log('[SUCCESS] Created test bite with ID: ${docRef.id}');
+      
+      // Add to current user's unlocked content
       final user = _auth.currentUser;
-      if (user == null) {
-        _log('[ERROR] No user logged in');
-        return;
-      }
-      
-      _log('Current user: ${user.email} (${user.uid})');
-      
-      // Find all awaiting gifts for this user
-      final giftsQuery = await _firestore
-          .collection('gifts')
-          .where('recipientEmail', isEqualTo: user.email)
-          .where('status', isEqualTo: 'awaiting_registration')
-          .get();
-      
-      _log('Found ${giftsQuery.docs.length} awaiting gifts');
-      
-      for (final doc in giftsQuery.docs) {
-        try {
-          await _firestore.collection('gifts').doc(doc.id).update({
-            'recipientUid': user.uid,
-            'status': 'pending',
-            'receivedAt': Timestamp.now(),
-          });
-          _log('[SUCCESS] Updated gift status: ${doc.id}');
-        } catch (e) {
-          _log('[ERROR] Failed to update gift: $e');
-        }
-      }
-      
-      _log('Fix awaiting gifts completed');
-    } catch (e) {
-      _log('[ERROR] Exception fixing awaiting gifts: $e');
-    } finally {
-      setState(() {
-        _isRunning = false;
-      });
-    }
-  }
-  
-  // New function to add a gift manually
-  Future<void> _addGiftManually() async {
-    setState(() {
-      _isRunning = true;
-    });
-
-    try {
-      _log('Starting to add gift manually...');
-      
-      // Check current user
-      final user = _auth.currentUser;
-      if (user == null) {
-        _log('[ERROR] No user logged in');
-        return;
-      }
-      
-      _log('Current user: ${user.email} (${user.uid})');
-      
-      // Get the bites for selection
-      final bitesQuery = await _firestore
-          .collection('bites')
-          .limit(1)
-          .get();
-      
-      if (bitesQuery.docs.isEmpty) {
-        _log('[ERROR] No bites found');
-        return;
-      }
-      
-      final biteDoc = bitesQuery.docs.first;
-      final biteId = biteDoc.id;
-      final biteTitle = biteDoc.data()['title'] ?? 'Unknown Bite';
-      
-      _log('Selected bite: $biteTitle ($biteId)');
-      
-      // Create a timestamp
-      final timestamp = Timestamp.now();
-      
-      // Add to giftedEpisodes directly
-      try {
-        final giftedEpisode = {
-          'giftId': 'manual-${DateTime.now().millisecondsSinceEpoch}',
-          'biteId': biteId,
-          'senderUid': 'manual',
-          'senderName': 'Manual Addition',
-          'receivedAt': timestamp,
-        };
-        
+      if (user != null) {
         await _firestore.collection('users').doc(user.uid).update({
-          'giftedEpisodes': FieldValue.arrayUnion([giftedEpisode]),
-          'unreadGifts': FieldValue.increment(1),
+          'unlockedContent': FieldValue.arrayUnion([docRef.id]),
         });
-        
-        _log('[SUCCESS] Manually added gift for bite: $biteTitle');
-      } catch (e) {
-        _log('[ERROR] Failed to add gift manually: $e');
+        _log('[SUCCESS] Added bite to user\'s unlocked content');
       }
       
-      _log('Manual gift addition completed');
+      // Clear input fields
+      _titleController.clear();
+      _descriptionController.clear();
+      _audioUrlController.text = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+      _thumbnailUrlController.clear();
+      _categoryController.text = 'Test Category';
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test bite created successfully')),
+      );
     } catch (e) {
-      _log('[ERROR] Exception during manual gift addition: $e');
+      _log('[ERROR] Exception creating test bite: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating test bite: $e')),
+      );
     } finally {
       setState(() {
         _isRunning = false;

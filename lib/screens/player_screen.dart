@@ -4,6 +4,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/bite_model.dart';
+import '../services/audio_player_service.dart';
+import '../services/content_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final BiteModel bite;
@@ -11,202 +13,122 @@ class PlayerScreen extends StatefulWidget {
   const PlayerScreen({Key? key, required this.bite}) : super(key: key);
   
   @override
-  _PlayerScreenState createState() => _PlayerScreenState();
+  State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayerService _audioService = AudioPlayerService();
+  final ContentService _contentService = ContentService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
   bool _isLoading = true;
-  bool _hasError = false;
+  bool _isError = false;
   String _errorMessage = '';
+  
   double _progress = 0.0;
-  String _positionText = '0:00';
-  String _durationText = '0:00';
+  Duration _position = Duration.zero;
+  Duration? _duration;
   bool _isPlaying = false;
-  Timer? _initTimeout;
   bool _isBuffering = false;
-  bool _isComplete = false;
-  String _reaction = '';
-  final List<String> _reactionOptions = ['👍', '❤️', '😊', '🤔', '😢'];
-
+  
+  // Reaction system
+  bool _isSavingReaction = false;
+  String _selectedReaction = '';
+  final List<String> _reactionOptions = ['🤔', '🔥', '💡', '📝'];
+  
+  // Favorite system
+  bool _isFavorite = false;
+  bool _isSavingFavorite = false;
+  
   @override
   void initState() {
     super.initState();
-    print("PlayerScreen initialized with bite: ${widget.bite.id}");
-    print("Audio URL: ${widget.bite.audioUrl}");
-    
-    // Set a timeout for audio initialization
-    _initTimeout = Timer(const Duration(seconds: 10), () {
-      if (_isLoading) {
-        setState(() {
-          _hasError = true;
-          _isLoading = false;
-          _errorMessage = 'Audio loading timeout - please check your connection';
-        });
-      }
-    });
-    
-    _initAudio();
+    _initPlayer();
     _loadUserReaction();
+    _checkIfFavorite();
   }
   
   Future<void> _loadUserReaction() async {
     try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) return;
+      final user = _auth.currentUser;
+      if (user == null) return;
       
-      final reactionDoc = await FirebaseFirestore.instance
+      final reactionDoc = await _firestore
           .collection('users')
-          .doc(userId)
+          .doc(user.uid)
           .collection('reactions')
           .doc(widget.bite.id)
           .get();
       
       if (reactionDoc.exists && reactionDoc.data() != null) {
-        setState(() {
-          _reaction = reactionDoc.data()?['reaction'] ?? '';
-        });
+        final reaction = reactionDoc.data()?['reaction'] ?? '';
+        if (mounted) {
+          setState(() {
+            _selectedReaction = reaction;
+          });
+        }
       }
     } catch (e) {
       print('Error loading user reaction: $e');
     }
   }
   
-  Future<void> _initAudio() async {
+  Future<void> _checkIfFavorite() async {
     try {
-      print("Initializing audio player");
+      final user = _auth.currentUser;
+      if (user == null) return;
       
-      // Prepare multiple fallback URLs
-      final audioUrls = [
-        widget.bite.audioUrl.trim(),
-        'https://samplelib.com/lib/preview/mp3/sample-3s.mp3',
-        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-      ];
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) return;
       
-      bool loaded = false;
-      String lastError = '';
+      final userData = userDoc.data();
+      if (userData == null) return;
       
-      // Try each URL until one works
-      for (final url in audioUrls) {
-        try {
-          print("Trying to load audio from URL: '$url'");
-          
-          if (url.isEmpty) {
-            print("Empty URL, skipping");
-            continue;
-          }
-          
-          // Set the audio source
-          await _player.setUrl(url);
-          
-          // If we get here, it worked!
-          print("Audio loaded successfully from: $url");
-          loaded = true;
-          break;
-        } catch (e) {
-          lastError = e.toString();
-          print("Failed to load from $url: $e");
-          // Continue to the next URL
-        }
-      }
+      final List<dynamic> favorites = userData['favorites'] ?? [];
+      final isFavorite = favorites.contains(widget.bite.id);
       
-      if (!loaded) {
-        throw Exception("Could not load audio from any URL. Last error: $lastError");
-      }
-      
-      // Set up position and state listeners
-      _player.positionStream.listen((position) {
-        if (!mounted) return;
-        
-        final duration = _player.duration ?? Duration.zero;
-        
+      if (mounted) {
         setState(() {
-          _progress = duration.inMilliseconds > 0 
-              ? position.inMilliseconds / duration.inMilliseconds 
-              : 0.0;
-          _positionText = _formatDuration(position);
-          _durationText = _formatDuration(duration);
+          _isFavorite = isFavorite;
         });
-      });
-      
-      _player.playerStateStream.listen((state) {
-        if (!mounted) return;
-        
-        setState(() {
-          _isPlaying = state.playing;
-          _isBuffering = state.processingState == ProcessingState.buffering;
-          _isComplete = state.processingState == ProcessingState.completed;
-          
-          if (_isComplete) {
-            _markBiteAsListened();
-          }
-        });
-      });
-      
-      // Start playing automatically
-      await _player.play();
-      
-      setState(() {
-        _isLoading = false;
-      });
+      }
     } catch (e) {
-      print('ERROR initializing audio: $e');
-      setState(() {
-        _hasError = true;
-        _isLoading = false;
-        _errorMessage = 'Could not load audio: ${e.toString().substring(0, min(100, e.toString().length))}';
-      });
-    } finally {
-      // Cancel timeout
-      _initTimeout?.cancel();
-    }
-  }
-  
-  int min(int a, int b) => a < b ? a : b;
-  
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-  
-  Future<void> _markBiteAsListened() async {
-    try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) return;
-      
-      // Add to listened bites
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .update({
-        'listenedBites': FieldValue.arrayUnion([widget.bite.id]),
-      });
-      
-      print('Marked bite as listened: ${widget.bite.id}');
-    } catch (e) {
-      print('Error marking bite as listened: $e');
+      print('Error checking favorite status: $e');
     }
   }
   
   Future<void> _saveReaction(String reaction) async {
+    if (_isSavingReaction) return;
+    
     try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) return;
+      setState(() {
+        _isSavingReaction = true;
+      });
       
-      // Save reaction
-      await FirebaseFirestore.instance
+      final user = _auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You must be logged in to react')),
+        );
+        return;
+      }
+      
+      // Save reaction to Firestore
+      await _firestore
           .collection('users')
-          .doc(userId)
+          .doc(user.uid)
           .collection('reactions')
           .doc(widget.bite.id)
           .set({
         'reaction': reaction,
         'timestamp': FieldValue.serverTimestamp(),
+        'biteTitle': widget.bite.title,
       });
       
       setState(() {
-        _reaction = reaction;
+        _selectedReaction = reaction;
+        _isSavingReaction = false;
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -214,17 +136,153 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     } catch (e) {
       print('Error saving reaction: $e');
+      setState(() {
+        _isSavingReaction = false;
+      });
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save reaction: $e')),
+        SnackBar(content: Text('Error saving reaction: $e')),
       );
     }
   }
   
-  @override
-  void dispose() {
-    _player.dispose();
-    _initTimeout?.cancel();
-    super.dispose();
+  Future<void> _toggleFavorite() async {
+    if (_isSavingFavorite) return;
+    
+    try {
+      setState(() {
+        _isSavingFavorite = true;
+      });
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You must be logged in to favorite content')),
+        );
+        return;
+      }
+      
+      if (_isFavorite) {
+        // Remove from favorites
+        await _firestore.collection('users').doc(user.uid).update({
+          'favorites': FieldValue.arrayRemove([widget.bite.id]),
+        });
+        
+        setState(() {
+          _isFavorite = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Removed from favorites')),
+        );
+      } else {
+        // Add to favorites
+        await _firestore.collection('users').doc(user.uid).update({
+          'favorites': FieldValue.arrayUnion([widget.bite.id]),
+        });
+        
+        setState(() {
+          _isFavorite = true;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to favorites')),
+        );
+      }
+    } catch (e) {
+      print('Error toggling favorite: $e');
+    } finally {
+      setState(() {
+        _isSavingFavorite = false;
+      });
+    }
+  }
+  
+  Future<void> _initPlayer() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _isError = false;
+      });
+      
+      print("Initializing player for bite: ${widget.bite.id}");
+      
+      // Play the bite
+      await _audioService.playBite(widget.bite);
+      
+      // Mark as listened
+      _contentService.markBiteAsListened(widget.bite.id);
+      
+      // Set up position updates
+      _audioService.positionStream.listen((position) {
+        if (!mounted) return;
+        
+        final duration = _audioService.duration ?? Duration.zero;
+        if (duration.inMilliseconds > 0) {
+          final progress = position.inMilliseconds / duration.inMilliseconds;
+          setState(() {
+            _position = position;
+            _progress = progress.clamp(0.0, 1.0);
+          });
+        }
+      });
+      
+      // Set up duration updates
+      _audioService.durationStream.listen((duration) {
+        if (!mounted || duration == null) return;
+        setState(() {
+          _duration = duration;
+        });
+      });
+      
+      // Set up player state updates
+      _audioService.playerStateStream.listen((state) {
+        if (!mounted) return;
+        setState(() {
+          _isPlaying = state.playing;
+          _isBuffering = state.processingState == ProcessingState.buffering;
+        });
+      });
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("Error initializing player: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isError = true;
+          _errorMessage = "Couldn't play audio: $e";
+        });
+      }
+    }
+  }
+  
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _audioService.pause();
+    } else {
+      _audioService.resume();
+    }
+  }
+  
+  void _skipBackward() {
+    final newPosition = _position - const Duration(seconds: 10);
+    _audioService.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
+  }
+  
+  void _skipForward() {
+    final duration = _duration ?? Duration.zero;
+    final newPosition = _position + const Duration(seconds: 30);
+    _audioService.seekTo(newPosition > duration ? duration : newPosition);
+  }
+  
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
   
   @override
@@ -232,17 +290,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.bite.title),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
+        actions: [
+          // Favorite button
+          IconButton(
+            icon: Icon(
+              _isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: _isFavorite ? Colors.red : null,
+            ),
+            onPressed: _isSavingFavorite ? null : _toggleFavorite,
+          ),
+          // Share button
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () {
+              // Implement share functionality
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Share functionality coming soon')),
+              );
+            },
+          ),
+        ],
       ),
-      body: _hasError 
-          ? _buildErrorView() 
-          : _isLoading 
-              ? _buildLoadingView() 
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : _isError 
+              ? _buildErrorView()
               : _buildPlayerView(),
     );
   }
@@ -250,63 +322,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget _buildErrorView() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.error_outline,
-              size: 72,
+              size: 64,
               color: Colors.red,
             ),
             const SizedBox(height: 16),
             Text(
-              'Error Playing Content',
+              'Unable to Play Audio',
               style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             Text(
               _errorMessage,
-              style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                  _hasError = false;
-                });
-                _initAudio();
-              },
+              onPressed: _initPlayer,
               child: const Text('Try Again'),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Go Back'),
             ),
           ],
         ),
-      ),
-    );
-  }
-  
-  Widget _buildLoadingView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            'Loading ${widget.bite.title}...',
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
@@ -318,171 +359,156 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
-            if (widget.bite.thumbnailUrl.isNotEmpty)
-              Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  image: DecorationImage(
-                    image: NetworkImage(widget.bite.thumbnailUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 20),
-            
-            // Title
+            // Title and description
             Text(
               widget.bite.title,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            
-            // Description
             Text(
               widget.bite.description,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
+            
+            // Image if available
+            if (widget.bite.thumbnailUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  widget.bite.thumbnailUrl,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[300],
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported, size: 50),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            
+            const SizedBox(height: 32),
+            
+            // Player controls
+            Slider(
+              value: _progress,
+              onChanged: (value) {
+                if (_duration != null) {
+                  final position = Duration(
+                    milliseconds: (value * _duration!.inMilliseconds).round(),
+                  );
+                  _audioService.seekTo(position);
+                }
+              },
+            ),
+            
+            // Time display
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_formatDuration(_position)),
+                  Text(_formatDuration(_duration ?? Duration.zero)),
+                ],
               ),
             ),
+            
+            const SizedBox(height: 16),
+            
+            // Play controls
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _skipBackward,
+                  icon: const Icon(Icons.replay_10),
+                  iconSize: 36,
+                ),
+                const SizedBox(width: 16),
+                IconButton(
+                  onPressed: _isBuffering ? null : _togglePlayPause,
+                  icon: Icon(
+                    _isBuffering
+                        ? Icons.hourglass_empty
+                        : _isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_filled,
+                  ),
+                  iconSize: 64,
+                  color: Theme.of(context).primaryColor,
+                ),
+                const SizedBox(width: 16),
+                IconButton(
+                  onPressed: _skipForward,
+                  icon: const Icon(Icons.forward_30),
+                  iconSize: 36,
+                ),
+              ],
+            ),
+            
             const SizedBox(height: 32),
             
-            // Player Controls
-            _buildPlayerControls(),
-            const SizedBox(height: 32),
+            // Reaction buttons
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'How did you feel about this content?',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             
-            // Reactions
-            _buildReactionSection(),
+            const SizedBox(height: 16),
+            
+            _isSavingReaction
+                ? const Center(child: CircularProgressIndicator())
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _reactionOptions.map((emoji) {
+                      final isSelected = _selectedReaction == emoji;
+                      return InkWell(
+                        onTap: () => _saveReaction(emoji),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected
+                                ? Theme.of(context).primaryColor.withOpacity(0.2)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+            
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildPlayerControls() {
-    return Column(
-      children: [
-        // Progress bar
-        Slider(
-          value: _progress,
-          onChanged: (value) {
-            if (_player.duration != null) {
-              final position = Duration(
-                milliseconds: (value * _player.duration!.inMilliseconds).round(),
-              );
-              _player.seek(position);
-            }
-          },
-        ),
-        
-        // Position and duration text
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(_positionText),
-            Text(_durationText),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        // Play/pause and other controls
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              iconSize: 32,
-              icon: const Icon(Icons.replay_10),
-              onPressed: () {
-                if (_player.position.inSeconds >= 10) {
-                  _player.seek(_player.position - const Duration(seconds: 10));
-                } else {
-                  _player.seek(Duration.zero);
-                }
-              },
-            ),
-            const SizedBox(width: 16),
-            IconButton(
-              iconSize: 64,
-              icon: Icon(
-                _isBuffering 
-                    ? Icons.hourglass_top
-                    : _isPlaying 
-                        ? Icons.pause_circle_filled 
-                        : Icons.play_circle_filled,
-              ),
-              onPressed: _isBuffering 
-                  ? null 
-                  : () {
-                      if (_isPlaying) {
-                        _player.pause();
-                      } else {
-                        _player.play();
-                      }
-                    },
-            ),
-            const SizedBox(width: 16),
-            IconButton(
-              iconSize: 32,
-              icon: const Icon(Icons.forward_30),
-              onPressed: () {
-                if (_player.duration != null) {
-                  final newPosition = _player.position + const Duration(seconds: 30);
-                  if (newPosition < _player.duration!) {
-                    _player.seek(newPosition);
-                  } else {
-                    _player.seek(_player.duration!);
-                  }
-                }
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
   
-  Widget _buildReactionSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'How did you feel about this content?',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        
-        // Reaction options
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: _reactionOptions.map((emoji) {
-            return GestureDetector(
-              onTap: () => _saveReaction(emoji),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _reaction == emoji 
-                      ? Theme.of(context).primaryColor.withOpacity(0.2) 
-                      : Colors.transparent,
-                ),
-                child: Text(
-                  emoji,
-                  style: const TextStyle(fontSize: 28),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
+  @override
+  void dispose() {
+    // We don't dispose the AudioPlayerService since it's a singleton
+    super.dispose();
   }
 }

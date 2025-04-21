@@ -1,228 +1,87 @@
 import 'package:just_audio/just_audio.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import '../models/bite_model.dart';
 
-enum ProcessingState {
-  idle,
-  loading,
-  buffering,
-  ready,
-  completed,
-  error,
-}
-
-class PlayerState {
-  final bool playing;
-  final ProcessingState processingState;
-  
-  PlayerState({
-    required this.playing,
-    required this.processingState,
-  });
-}
-
 class AudioPlayerService {
-  // Singleton pattern
+  // Create a singleton
   static final AudioPlayerService _instance = AudioPlayerService._internal();
   factory AudioPlayerService() => _instance;
   AudioPlayerService._internal();
 
+  // The audio player instance
   final AudioPlayer _player = AudioPlayer();
+  
+  // Current bite being played
   BiteModel? _currentBite;
   
-  // Initialize the audio player
+  // Initialize player
   Future<void> init() async {
-    try {
-      print("Initializing audio player");
-      // We'll try to initialize the background service, but if it fails,
-      // we'll still allow the app to function
-      try {
-        await JustAudioBackground.init(
-          androidNotificationChannelId: 'com.pumpkinbites.audio',
-          androidNotificationChannelName: 'Pumpkin Bites Audio',
-          androidNotificationOngoing: true,
-        );
-        print("Background audio service initialized successfully");
-      } catch (backgroundError) {
-        print('Background audio initialization error: $backgroundError');
-        print('Continuing without background playback...');
-      }
-      
-      // Make sure player is stopped and reset
-      await _player.stop();
-      print("Audio player initialized successfully");
-    } catch (e) {
-      print('Audio player initialization error: $e');
-    }
+    print("Initializing audio player service");
+    // Nothing to do here for now - just a placeholder
   }
   
-  // Load a bite's audio with better error handling
-  Future<void> loadBite(BiteModel bite) async {
+  // Load and play a bite
+  Future<void> playBite(BiteModel bite) async {
     try {
-      print("========== AUDIO DEBUG ==========");
-      print("Loading audio for bite: ${bite.id}");
-      print("Original audio URL: '${bite.audioUrl}'");
-      
+      print("Playing bite: ${bite.id}, audio URL: ${bite.audioUrl}");
       _currentBite = bite;
       
-      // Thorough URL cleaning
-      String? cleanUrl = bite.audioUrl;
-      
-      // Check for null or empty URL
-      if (cleanUrl == null || cleanUrl.isEmpty) {
-        print("ERROR: Audio URL is null or empty!");
-        throw Exception('Audio URL is null or empty');
+      // Use fallback URL if needed
+      String audioUrl = bite.audioUrl.trim();
+      if (audioUrl.isEmpty || (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://'))) {
+        audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+        print("Using fallback URL: $audioUrl");
       }
       
-      // Trim the URL
-      cleanUrl = cleanUrl.trim();
-      print("Cleaned URL: '$cleanUrl'");
+      // Set the audio source
+      await _player.setUrl(audioUrl);
       
-      // Validate the URL format
-      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-        print("ERROR: URL does not start with http:// or https://");
-        throw Exception('Invalid URL format');
-      }
+      // Ensure we start at the beginning
+      await _player.seek(Duration.zero);
       
-      print("Setting audio source...");
-      
-      // Set the audio source with better error handling
-      try {
-        await _player.setAudioSource(
-          AudioSource.uri(
-            Uri.parse(cleanUrl),
-            tag: MediaItem(
-              id: bite.id,
-              title: bite.title,
-              artist: 'Pumpkin Bites',
-              artUri: Uri.parse(bite.thumbnailUrl.trim()),
-            ),
-          ),
-        );
-        print("Audio source set successfully");
-      } catch (audioSourceError) {
-        print("ERROR setting audio source: $audioSourceError");
-        
-        // Try with a fallback URL if the original fails
-        print("Attempting with fallback audio URL...");
-        const fallbackUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
-        
-        try {
-          await _player.setAudioSource(
-            AudioSource.uri(
-              Uri.parse(fallbackUrl),
-              tag: MediaItem(
-                id: bite.id,
-                title: bite.title + " (Fallback)",
-                artist: 'Pumpkin Bites',
-                artUri: Uri.parse(bite.thumbnailUrl.trim()),
-              ),
-            ),
-          );
-          print("Fallback audio source set successfully");
-        } catch (fallbackError) {
-          print("ERROR setting fallback audio source: $fallbackError");
-          throw Exception('Could not load audio, even with fallback URL');
-        }
-      }
-      
-      print("Audio loaded successfully");
-      print("========== END AUDIO DEBUG ==========");
+      // Then play
+      await _player.play();
+      print("Successfully started playback from beginning");
     } catch (e) {
-      print('ERROR in loadBite method: $e');
+      print("Error playing bite: $e");
       throw e;
     }
   }
   
-  // Play the currently loaded audio
-  Future<void> play() async {
-    try {
-      print("Playing audio");
-      await _player.play();
-    } catch (e) {
-      print('Error playing audio: $e');
-    }
-  }
-  
-  // Pause the currently playing audio
+  // Pause playback
   Future<void> pause() async {
-    try {
-      print("Pausing audio");
-      await _player.pause();
-    } catch (e) {
-      print('Error pausing audio: $e');
-    }
+    await _player.pause();
   }
   
-  // Seek to a specific position
+  // Resume playback
+  Future<void> resume() async {
+    await _player.play();
+  }
+  
+  // Seek to position
   Future<void> seekTo(Duration position) async {
-    try {
-      await _player.seek(position);
-    } catch (e) {
-      print('Error seeking audio: $e');
-    }
+    await _player.seek(position);
   }
   
-  // Set playback speed
-  Future<void> setSpeed(double speed) async {
-    try {
-      await _player.setSpeed(speed);
-    } catch (e) {
-      print('Error setting speed: $e');
-    }
-  }
+  // Get current position
+  Duration get position => _player.position;
   
-  // Get current position stream
+  // Get current duration
+  Duration? get duration => _player.duration;
+  
+  // Get position stream
   Stream<Duration> get positionStream => _player.positionStream;
-  
-  // Get buffer position stream
-  Stream<Duration> get bufferedPositionStream => _player.bufferedPositionStream;
   
   // Get duration stream
   Stream<Duration?> get durationStream => _player.durationStream;
   
-  // Get player state stream
-  Stream<PlayerState> get playerStateStream {
-    return Rx.combineLatest2<bool, ProcessingStateStreamValue, PlayerState>(
-      _player.playingStream,
-      _processingStateStream,
-      (playing, processingState) => PlayerState(
-        playing: playing,
-        processingState: processingState.state,
-      ),
-    );
-  }
+  // Is playing?
+  bool get isPlaying => _player.playing;
   
-  // Private stream to convert Just Audio processing state to our enum
-  Stream<ProcessingStateStreamValue> get _processingStateStream {
-    return _player.processingStateStream.map((state) {
-      switch (state) {
-        case ProcessingState.idle:
-          return ProcessingStateStreamValue(ProcessingState.idle);
-        case ProcessingState.loading:
-          return ProcessingStateStreamValue(ProcessingState.loading);
-        case ProcessingState.buffering:
-          return ProcessingStateStreamValue(ProcessingState.buffering);
-        case ProcessingState.ready:
-          return ProcessingStateStreamValue(ProcessingState.ready);
-        case ProcessingState.completed:
-          return ProcessingStateStreamValue(ProcessingState.completed);
-        default:
-          return ProcessingStateStreamValue(ProcessingState.error);
-      }
-    });
-  }
+  // Get playback state
+  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   
-  // Dispose the player
+  // Dispose
   Future<void> dispose() async {
     await _player.dispose();
   }
-}
-
-// Helper class to wrap our ProcessingState enum
-class ProcessingStateStreamValue {
-  final ProcessingState state;
-  
-  ProcessingStateStreamValue(this.state);
 }

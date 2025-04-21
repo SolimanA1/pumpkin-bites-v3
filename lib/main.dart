@@ -9,8 +9,8 @@ import 'package:pumpkin_bites_new/screens/library_screen.dart';
 import 'package:pumpkin_bites_new/screens/dinner_table_screen.dart';
 import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
+import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
-import 'package:pumpkin_bites_new/services/gift_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/models/bite_model.dart';
 import 'firebase_options.dart';
@@ -23,7 +23,6 @@ void main() async {
   
   // Initialize services
   AuthService();  // Initialize the singleton
-  GiftService();  // Initialize the singleton
   
   // Initialize audio player
   final audioService = AudioPlayerService();
@@ -61,10 +60,17 @@ class MyApp extends StatelessWidget {
         '/dinner_table': (context) => const DinnerTableScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/gifting': (context) => const GiftingScreen(),
-        '/player': (context) {
-          final bite = ModalRoute.of(context)!.settings.arguments as BiteModel;
-          return PlayerScreen(bite: bite);
-        },
+        '/diagnostics': (context) => const DiagnosticScreen(),
+      },
+      // Use onGenerateRoute for routes that need parameters
+      onGenerateRoute: (settings) {
+        if (settings.name == '/player') {
+          final args = settings.arguments as BiteModel;
+          return MaterialPageRoute(
+            builder: (context) => PlayerScreen(bite: args),
+          );
+        }
+        return null;
       },
     );
   }
@@ -104,25 +110,11 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  final GiftService _giftService = GiftService();
   final PageController _pageController = PageController();
-  int _unreadGiftCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadUnreadGiftCount();
-  }
-
-  Future<void> _loadUnreadGiftCount() async {
-    try {
-      final count = await _giftService.getUnreadGiftsCount();
-      setState(() {
-        _unreadGiftCount = count;
-      });
-    } catch (e) {
-      print('Error loading unread gift count: $e');
-    }
   }
 
   final List<Widget> _screens = [
@@ -159,50 +151,21 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
         selectedItemColor: Colors.orange,
         unselectedItemColor: Colors.grey,
-        items: [
-          const BottomNavigationBarItem(
+        items: const [
+          BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.book),
             label: 'Library',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Dinner Table',
           ),
           BottomNavigationBarItem(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.person),
-                if (_unreadGiftCount > 0)
-                  Positioned(
-                    right: -6,
-                    top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                      child: Text(
-                        _unreadGiftCount > 9 ? '9+' : '$_unreadGiftCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            icon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
