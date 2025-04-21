@@ -3,15 +3,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/auth/register_screen.dart';
-import 'package:pumpkin_bites_new/screens/gifting_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
 import 'package:pumpkin_bites_new/screens/library_screen.dart';
 import 'package:pumpkin_bites_new/screens/dinner_table_screen.dart';
 import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
 import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
+import 'package:pumpkin_bites_new/screens/share_history_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
+import 'package:pumpkin_bites_new/services/share_service.dart';
 import 'package:pumpkin_bites_new/models/bite_model.dart';
 import 'firebase_options.dart';
 
@@ -23,6 +24,7 @@ void main() async {
   
   // Initialize services
   AuthService();  // Initialize the singleton
+  ShareService(); // Initialize the sharing singleton
   
   // Initialize audio player
   final audioService = AudioPlayerService();
@@ -59,8 +61,8 @@ class MyApp extends StatelessWidget {
         '/library': (context) => const LibraryScreen(),
         '/dinner_table': (context) => const DinnerTableScreen(),
         '/profile': (context) => const ProfileScreen(),
-        '/gifting': (context) => const GiftingScreen(),
         '/diagnostics': (context) => const DiagnosticScreen(),
+        '/share_history': (context) => const ShareHistoryScreen(),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {

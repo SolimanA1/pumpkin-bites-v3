@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
-import '../services/gift_service.dart';
 import '../models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -13,10 +12,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
-  final GiftService _giftService = GiftService();
   UserModel? _user;
   bool _isLoading = true;
-  int _unreadGiftsCount = 0;
 
   @override
   void initState() {
@@ -33,11 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final currentUser = await _authService.getCurrentUser();
       if (currentUser != null) {
         final userData = await _authService.getUserData(currentUser.uid);
-        final giftCount = await _giftService.getUnreadGiftsCount();
         
         setState(() {
           _user = userData;
-          _unreadGiftsCount = giftCount;
           _isLoading = false;
         });
       }
@@ -157,11 +152,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             _buildMenuItem(
-              icon: Icons.card_giftcard,
-              title: 'Gift & Share',
-              badge: _unreadGiftsCount,
+              icon: Icons.share,
+              title: 'Share History',
               onTap: () {
-                Navigator.pushNamed(context, '/gifting');
+                Navigator.pushNamed(context, '/share_history');
               },
             ),
             _buildMenuItem(

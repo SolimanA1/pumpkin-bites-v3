@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/bite_model.dart';
 import '../services/audio_player_service.dart';
 import '../services/content_service.dart';
+import '../services/share_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final BiteModel bite;
@@ -19,6 +20,7 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen> {
   final AudioPlayerService _audioService = AudioPlayerService();
   final ContentService _contentService = ContentService();
+  final ShareService _shareService = ShareService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
@@ -40,6 +42,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // Favorite system
   bool _isFavorite = false;
   bool _isSavingFavorite = false;
+  
+  // Share system
+  bool _isSharing = false;
   
   @override
   void initState() {
@@ -198,6 +203,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
   
+  Future<void> _shareBite() async {
+    if (_isSharing) return;
+    
+    try {
+      setState(() {
+        _isSharing = true;
+      });
+      
+      await _shareService.shareBite(context, widget.bite);
+    } catch (e) {
+      print('Error sharing bite: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing content: $e')),
+      );
+    } finally {
+      setState(() {
+        _isSharing = false;
+      });
+    }
+  }
+  
   Future<void> _initPlayer() async {
     try {
       setState(() {
@@ -301,13 +327,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
           // Share button
           IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              // Implement share functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Share functionality coming soon')),
-              );
-            },
+            icon: _isSharing 
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.share),
+            onPressed: _isSharing ? null : _shareBite,
           ),
         ],
       ),
@@ -498,6 +528,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       );
                     }).toList(),
                   ),
+            
+            const SizedBox(height: 16),
+            
+            // Share content button
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: _isSharing ? null : _shareBite,
+                icon: const Icon(Icons.share),
+                label: const Text('Share this bite with friends'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
             
             const SizedBox(height: 32),
           ],
