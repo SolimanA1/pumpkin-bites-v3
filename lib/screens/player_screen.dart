@@ -27,12 +27,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isLoading = true;
   bool _isError = false;
   String _errorMessage = '';
+  bool _hasAttemptedPlay = false;
   
   double _progress = 0.0;
   Duration _position = Duration.zero;
   Duration? _duration;
   bool _isPlaying = false;
   bool _isBuffering = false;
+  
+  // Timer for force-exiting loading state and position updates
+  Timer? _loadingTimeoutTimer;
+  Timer? _positionUpdateTimer;
   
   // Reaction system
   bool _isSavingReaction = false;
@@ -52,6 +57,58 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _initPlayer();
     _loadUserReaction();
     _checkIfFavorite();
+    
+    // Set a timeout to exit loading state even if something goes wrong
+    _loadingTimeoutTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _isLoading) {
+        print("Loading timeout exceeded, forcing exit from loading state");
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
+    
+    // Start a timer to update position manually if needed
+    _positionUpdateTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      _updatePositionManually();
+    });
+  }
+  
+  @override
+  void dispose() {
+    _loadingTimeoutTimer?.cancel();
+    _positionUpdateTimer?.cancel();
+    super.dispose();
+  }
+  
+  // Manually update position if stream isn't working
+  void _updatePositionManually() {
+    if (!mounted || _isLoading || _isError) return;
+    
+    // Get current position directly
+    final currentPosition = _audioService.position;
+    final currentDuration = _audioService.duration;
+    final isPlaying = _audioService.isPlaying;
+    
+    // Only update if different from current state
+    if (currentPosition != _position || isPlaying != _isPlaying || currentDuration != _duration) {
+      setState(() {
+        _position = currentPosition;
+        _isPlaying = isPlaying;
+        
+        if (currentDuration != null && currentDuration.inMilliseconds > 0) {
+          _duration = currentDuration;
+          _progress = _position.inMilliseconds / _duration!.inMilliseconds;
+          _progress = _progress.clamp(0.0, 1.0);
+        } else if (widget.bite.duration > 0) {
+          // Fallback to bite duration if player duration isn't available
+          final totalDuration = Duration(seconds: widget.bite.duration);
+          _duration = totalDuration;
+          _progress = _position.inMilliseconds / totalDuration.inMilliseconds;
+          _progress = _progress.clamp(0.0, 1.0);
+        }
+      });
+    }
   }
   
   Future<void> _loadUserReaction() async {
@@ -211,7 +268,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isSharing = true;
       });
       
-      await _shareService.shareBite(context, widget.bite);
+      // Use enhanced sharing with audio service and position information
+      await _shareService.shareBite(
+        context, 
+        widget.bite, 
+        audioService: _audioService,
+        currentPosition: _position,
+        totalDuration: _duration ?? Duration(seconds: widget.bite.duration),
+      );
     } catch (e) {
       print('Error sharing bite: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -229,9 +293,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         _isLoading = true;
         _isError = false;
+        _hasAttemptedPlay = false;
       });
       
       print("Initializing player for bite: ${widget.bite.id}");
+      print("Audio URL: ${widget.bite.audioUrl}");
+      print("Duration in bite model: ${widget.bite.duration} seconds");
       
       // Play the bite
       await _audioService.playBite(widget.bite);
@@ -239,11 +306,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
       // Mark as listened
       _contentService.markBiteAsListened(widget.bite.id);
       
+      // Set _hasAttemptedPlay to true since playback has been initiated
+      setState(() {
+        _hasAttemptedPlay = true;
+      });
+      
       // Set up position updates
       _audioService.positionStream.listen((position) {
         if (!mounted) return;
         
-        final duration = _audioService.duration ?? Duration.zero;
+        // If we're receiving position updates, audio is playing, so exit loading state
+        if (_isLoading && position.inMilliseconds > 0) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        
+        final duration = _audioService.duration ?? Duration(seconds: widget.bite.duration);
         if (duration.inMilliseconds > 0) {
           final progress = position.inMilliseconds / duration.inMilliseconds;
           setState(() {
@@ -251,27 +330,55 @@ class _PlayerScreenState extends State<PlayerScreen> {
             _progress = progress.clamp(0.0, 1.0);
           });
         }
+      }, onError: (error) {
+        print("Error from position stream: $error");
       });
       
       // Set up duration updates
       _audioService.durationStream.listen((duration) {
         if (!mounted || duration == null) return;
+        print("Duration update from stream: $duration");
         setState(() {
           _duration = duration;
+          
+          // If we got a duration, we can exit loading state
+          if (_isLoading && _hasAttemptedPlay) {
+            _isLoading = false;
+          }
         });
+      }, onError: (error) {
+        print("Error from duration stream: $error");
       });
       
       // Set up player state updates
       _audioService.playerStateStream.listen((state) {
         if (!mounted) return;
+        print("Player state update: $state");
+        
+        // If we're receiving state updates and have attempted playback, exit loading state
+        if (_isLoading && _hasAttemptedPlay) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        
         setState(() {
           _isPlaying = state.playing;
           _isBuffering = state.processingState == ProcessingState.buffering;
         });
+      }, onError: (error) {
+        print("Error from player state stream: $error");
       });
       
-      setState(() {
-        _isLoading = false;
+      // Important: Set loading to false here as a fallback
+      // This ensures we exit loading state even if streams don't emit
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _isLoading) {
+          print("Forcing loading state exit after delay");
+          setState(() {
+            _isLoading = false;
+          });
+        }
       });
     } catch (e) {
       print("Error initializing player: $e");
@@ -286,11 +393,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
   
   void _togglePlayPause() {
+    print("Toggle play/pause, current state: ${_isPlaying ? 'playing' : 'paused'}");
     if (_isPlaying) {
       _audioService.pause();
     } else {
       _audioService.resume();
     }
+    
+    // Force UI update immediately
+    setState(() {
+      _isPlaying = !_isPlaying;
+    });
   }
   
   void _skipBackward() {
@@ -299,7 +412,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
   
   void _skipForward() {
-    final duration = _duration ?? Duration.zero;
+    final duration = _duration ?? Duration(seconds: widget.bite.duration);
     final newPosition = _position + const Duration(seconds: 30);
     _audioService.seekTo(newPosition > duration ? duration : newPosition);
   }
@@ -433,6 +546,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     milliseconds: (value * _duration!.inMilliseconds).round(),
                   );
                   _audioService.seekTo(position);
+                  
+                  // Update UI immediately
+                  setState(() {
+                    _progress = value;
+                    _position = position;
+                  });
                 }
               },
             ),
@@ -444,7 +563,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(_formatDuration(_position)),
-                  Text(_formatDuration(_duration ?? Duration.zero)),
+                  Text(_formatDuration(_duration ?? Duration(seconds: widget.bite.duration))),
                 ],
               ),
             ),
@@ -553,11 +672,5 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     );
-  }
-  
-  @override
-  void dispose() {
-    // We don't dispose the AudioPlayerService since it's a singleton
-    super.dispose();
   }
 }

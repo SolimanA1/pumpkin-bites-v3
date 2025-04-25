@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/bite_model.dart';
+import 'test_bite_creator.dart';
 
 class DiagnosticScreen extends StatefulWidget {
   const DiagnosticScreen({Key? key}) : super(key: key);
@@ -28,6 +29,9 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
   final TextEditingController _categoryController = TextEditingController(
     text: 'Test Category'
   );
+  final TextEditingController _durationController = TextEditingController(
+    text: '180'
+  );
   
   @override
   void dispose() {
@@ -36,6 +40,7 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
     _audioUrlController.dispose();
     _thumbnailUrlController.dispose();
     _categoryController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
@@ -65,14 +70,34 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const TestBiteCreator(),
+                      ));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepOrange,
+                    ),
+                    child: const Text('Create Real Audio Test Bite'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
                     onPressed: _isRunning ? null : _createTestBite,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
                     ),
-                    child: const Text('Create Test Bite'),
+                    child: const Text('Create Basic Test Bite'),
                   ),
                 ),
-                const SizedBox(width: 8),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _isRunning ? null : _runGiftDiagnostics,
@@ -288,9 +313,11 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
         final id = doc.id;
         final title = data['title'] ?? 'Untitled';
         final audioUrl = data['audioUrl'] ?? '';
+        final duration = data['duration'] ?? 0;
         
         _log('Bite: $title ($id)');
         _log('  Audio URL: $audioUrl');
+        _log('  Duration: $duration seconds');
         
         if (audioUrl.trim().isEmpty) {
           _log('[ERROR] Empty audio URL');
@@ -319,11 +346,27 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
           _log('Attempting to fix invalid URL...');
           try {
             await _firestore.collection('bites').doc(id).update({
-              'audioUrl': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+              'audioUrl': 'https://cdn.pixabay.com/download/audio/2022/10/30/audio_347111d654.mp3',
+              'duration': 175, // 2:55 in seconds
             });
             _log('[SUCCESS] Replaced invalid URL with placeholder');
           } catch (e) {
             _log('[ERROR] Failed to fix invalid URL: $e');
+          }
+        }
+        
+        if (duration <= 0) {
+          _log('[ERROR] Invalid duration: $duration');
+          
+          // Try to fix with a reasonable default
+          _log('Attempting to fix invalid duration...');
+          try {
+            await _firestore.collection('bites').doc(id).update({
+              'duration': 180, // 3 minutes in seconds
+            });
+            _log('[SUCCESS] Fixed invalid duration');
+          } catch (e) {
+            _log('[ERROR] Failed to fix invalid duration: $e');
           }
         }
       }
@@ -388,6 +431,15 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                   hintText: 'Enter category',
                 ),
               ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duration (seconds)',
+                  hintText: 'Enter duration in seconds',
+                ),
+                keyboardType: TextInputType.number,
+              ),
             ],
           ),
         ),
@@ -433,6 +485,8 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
       final String category = _categoryController.text.trim().isNotEmpty 
           ? _categoryController.text.trim() 
           : 'Test';
+          
+      final int duration = int.tryParse(_durationController.text.trim()) ?? 180;
       
       // Create bite document
       final biteData = {
@@ -443,7 +497,7 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
         'category': category,
         'authorName': 'Test Author',
         'date': Timestamp.now(),
-        'duration': 180, // 3 minutes
+        'duration': duration, // in seconds
         'isPremium': false,
         'isPremiumOnly': false,
         'dayNumber': DateTime.now().day,
@@ -466,9 +520,10 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
       // Clear input fields
       _titleController.clear();
       _descriptionController.clear();
-      _audioUrlController.text = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+      _audioUrlController.text = 'https://cdn.pixabay.com/download/audio/2022/10/30/audio_347111d654.mp3';
       _thumbnailUrlController.clear();
       _categoryController.text = 'Test Category';
+      _durationController.text = '180';
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Test bite created successfully')),
