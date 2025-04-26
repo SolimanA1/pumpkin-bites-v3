@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:just_audio/just_audio.dart';
 import '../models/bite_model.dart';
 import '../services/audio_player_service.dart';
 import '../services/content_service.dart';
 import '../services/share_service.dart';
-import 'share_dialog.dart';
+import '../screens/share_dialog.dart';
 
 class PlayerScreen extends StatefulWidget {
   final BiteModel bite;
@@ -44,7 +44,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isSavingReaction = false;
   String _selectedReaction = '';
   final List<String> _reactionOptions = ['🤔', '🔥', '💡', '📝'];
-  final List<String> _reactionLabels = ['Made me think', 'Game changer', 'Aha moment', 'Taking notes'];
+  final List<String> _reactionLabels = [
+    'Made me think',
+    'Game changer',
+    'Aha moment',
+    'Taking notes'
+  ];
   
   // Favorite system
   bool _isFavorite = false;
@@ -270,8 +275,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isSharing = true;
       });
       
-      // Show share dialog for enhanced sharing
-      final result = await showDialog<bool>(
+      // Show the share dialog with current position
+      await showDialog(
         context: context,
         builder: (context) => ShareDialog(
           bite: widget.bite,
@@ -280,28 +285,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
           totalDuration: _duration ?? Duration(seconds: widget.bite.duration),
         ),
       );
-      
-      setState(() {
-        _isSharing = false;
-      });
     } catch (e) {
       print('Error sharing bite: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error sharing content: $e')),
       );
+    } finally {
       setState(() {
         _isSharing = false;
       });
     }
-  }
-  
-  void _navigateToDinnerTable() {
-    // Navigate to dinner table with this specific bite
-    Navigator.pushNamed(
-      context,
-      '/unified_dinner_table',
-      arguments: {'biteId': widget.bite.id, 'audioService': _audioService},
-    );
   }
   
   Future<void> _initPlayer() async {
@@ -440,6 +433,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return "$twoDigitMinutes:$twoDigitSeconds";
   }
   
+  // New method to navigate directly to the comment detail screen
+  void _navigateToDinnerTable() {
+    // Navigate directly to the comment detail screen for this specific bite
+    Navigator.of(context).pushNamed('/comment_detail', arguments: widget.bite);
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -493,7 +492,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: 16),
             Text(
               'Unable to Play Audio',
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             Text(
@@ -521,12 +520,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             // Title and description
             Text(
               widget.bite.title,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
               widget.bite.description,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             
@@ -635,62 +634,72 @@ class _PlayerScreenState extends State<PlayerScreen> {
             
             _isSavingReaction
                 ? const Center(child: CircularProgressIndicator())
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(_reactionOptions.length, (index) {
-                      final emoji = _reactionOptions[index];
-                      final label = _reactionLabels[index];
-                      final isSelected = _selectedReaction == emoji;
-                      return Column(
-                        children: [
-                          InkWell(
-                            onTap: () => _saveReaction(emoji),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isSelected
-                                    ? Theme.of(context).primaryColor.withOpacity(0.2)
-                                    : Colors.transparent,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? Theme.of(context).primaryColor
-                                      : Colors.grey.shade300,
-                                  width: isSelected ? 2 : 1,
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(
+                        _reactionOptions.length,
+                        (index) {
+                          final emoji = _reactionOptions[index];
+                          final label = _reactionLabels[index];
+                          final isSelected = _selectedReaction == emoji;
+                          
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              InkWell(
+                                onTap: () => _saveReaction(emoji),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isSelected
+                                        ? Theme.of(context).primaryColor.withOpacity(0.2)
+                                        : Colors.transparent,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? Theme.of(context).primaryColor
+                                          : Colors.grey.shade300,
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    emoji,
+                                    style: const TextStyle(fontSize: 24),
+                                  ),
                                 ),
                               ),
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 24),
+                              const SizedBox(height: 4),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 12, 
+                                  color: isSelected 
+                                      ? Theme.of(context).primaryColor
+                                      : Colors.grey.shade600,
+                                  fontWeight: isSelected 
+                                      ? FontWeight.bold 
+                                      : FontWeight.normal,
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey[600],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      );
-                    }),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                   ),
             
             const SizedBox(height: 24),
             
-            // Dinner Table Button
+            // Join the dinner table button
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ElevatedButton.icon(
-                onPressed: _navigateToDinnerTable,
+                onPressed: _navigateToDinnerTable, // Use the new navigation method
                 icon: const Icon(Icons.forum),
-                label: const Text('Join the dinner table'),
+                label: const Text('Join the dinner table'), 
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(

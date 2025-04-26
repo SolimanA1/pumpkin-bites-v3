@@ -5,6 +5,7 @@ import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/auth/register_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
 import 'package:pumpkin_bites_new/screens/library_screen.dart';
+// Replacing DinnerTableScreen with UnifiedDinnerTableScreen
 import 'package:pumpkin_bites_new/screens/unified_dinner_table_screen.dart';
 import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
@@ -15,7 +16,11 @@ import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
 import 'package:pumpkin_bites_new/models/bite_model.dart';
+import 'package:pumpkin_bites_new/floating_player_bar.dart';
 import 'firebase_options.dart';
+
+// Global variable to track currently playing bite
+BiteModel? currentlyPlayingBite;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,7 +65,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const HomeScreen(),
         '/library': (context) => const LibraryScreen(),
-        '/dinner_table': (context) => const UnifiedDinnerTableScreen(),
+        '/dinner_table': (context) => const UnifiedDinnerTableScreen(), // Changed to UnifiedDinnerTableScreen
         '/profile': (context) => const ProfileScreen(),
         '/diagnostics': (context) => const DiagnosticScreen(),
         '/share_history': (context) => const ShareHistoryScreen(),
@@ -69,32 +74,15 @@ class MyApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         if (settings.name == '/player') {
           final args = settings.arguments as BiteModel;
+          // Store the currently playing bite for the floating player
+          currentlyPlayingBite = args;
           return MaterialPageRoute(
             builder: (context) => PlayerScreen(bite: args),
           );
-        } else if (settings.name == '/unified_dinner_table') {
-          // Handle case with biteId parameter
-          final args = settings.arguments as Map<String, dynamic>?;
-          final biteId = args?['biteId'] as String?;
-          final audioService = args?['audioService'] as AudioPlayerService?;
-          
-          return MaterialPageRoute(
-            builder: (context) => UnifiedDinnerTableScreen(
-              initialBiteId: biteId,
-              audioService: audioService,
-            ),
-          );
         } else if (settings.name == '/comment_detail') {
-          // Handle comment detail screen
-          final args = settings.arguments as Map<String, dynamic>;
-          final bite = args['bite'] as BiteModel;
-          final audioService = args['audioService'] as AudioPlayerService?;
-          
+          final args = settings.arguments as BiteModel;
           return MaterialPageRoute(
-            builder: (context) => CommentDetailScreen(
-              bite: bite,
-              audioService: audioService,
-            ),
+            builder: (context) => CommentDetailScreen(bite: args),
           );
         }
         return null;
@@ -138,6 +126,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
+  final AudioPlayerService _audioService = AudioPlayerService();
 
   @override
   void initState() {
@@ -147,7 +136,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const LibraryScreen(),
-    const UnifiedDinnerTableScreen(),
+    const UnifiedDinnerTableScreen(), // Changed to UnifiedDinnerTableScreen
     const ProfileScreen(),
   ];
 
@@ -164,36 +153,57 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  void _navigateToPlayer() {
+    if (currentlyPlayingBite != null) {
+      Navigator.of(context).pushNamed('/player', arguments: currentlyPlayingBite);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Check if audio is playing to show the floating player
+    final isPlaying = _audioService.isPlaying;
+    
     return Scaffold(
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book),
-            label: 'Library',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Dinner Table',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Floating player bar (only show if audio is playing)
+          if (isPlaying && currentlyPlayingBite != null)
+            FloatingPlayerBar(
+              bite: currentlyPlayingBite!,
+              onTap: _navigateToPlayer,
+            ),
+          // Regular bottom navigation
+          BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            currentIndex: _currentIndex,
+            onTap: _onItemTapped,
+            selectedItemColor: Colors.orange,
+            unselectedItemColor: Colors.grey,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.book),
+                label: 'Library',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.people),
+                label: 'Dinner Table',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ],
           ),
         ],
       ),
