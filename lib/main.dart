@@ -5,11 +5,12 @@ import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/auth/register_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
 import 'package:pumpkin_bites_new/screens/library_screen.dart';
-import 'package:pumpkin_bites_new/screens/dinner_table_screen.dart';
+import 'package:pumpkin_bites_new/screens/unified_dinner_table_screen.dart';
 import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
 import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
 import 'package:pumpkin_bites_new/screens/share_history_screen.dart';
+import 'package:pumpkin_bites_new/screens/comment_detail_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
@@ -59,7 +60,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const HomeScreen(),
         '/library': (context) => const LibraryScreen(),
-        '/dinner_table': (context) => const DinnerTableScreen(),
+        '/dinner_table': (context) => const UnifiedDinnerTableScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/diagnostics': (context) => const DiagnosticScreen(),
         '/share_history': (context) => const ShareHistoryScreen(),
@@ -70,6 +71,30 @@ class MyApp extends StatelessWidget {
           final args = settings.arguments as BiteModel;
           return MaterialPageRoute(
             builder: (context) => PlayerScreen(bite: args),
+          );
+        } else if (settings.name == '/unified_dinner_table') {
+          // Handle case with biteId parameter
+          final args = settings.arguments as Map<String, dynamic>?;
+          final biteId = args?['biteId'] as String?;
+          final audioService = args?['audioService'] as AudioPlayerService?;
+          
+          return MaterialPageRoute(
+            builder: (context) => UnifiedDinnerTableScreen(
+              initialBiteId: biteId,
+              audioService: audioService,
+            ),
+          );
+        } else if (settings.name == '/comment_detail') {
+          // Handle comment detail screen
+          final args = settings.arguments as Map<String, dynamic>;
+          final bite = args['bite'] as BiteModel;
+          final audioService = args['audioService'] as AudioPlayerService?;
+          
+          return MaterialPageRoute(
+            builder: (context) => CommentDetailScreen(
+              bite: bite,
+              audioService: audioService,
+            ),
           );
         }
         return null;
@@ -122,7 +147,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const LibraryScreen(),
-    const DinnerTableScreen(),
+    const UnifiedDinnerTableScreen(),
     const ProfileScreen(),
   ];
 
