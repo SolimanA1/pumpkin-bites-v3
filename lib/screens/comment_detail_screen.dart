@@ -5,6 +5,7 @@ import '../models/bite_model.dart';
 import '../models/comment_model.dart';
 import '../services/content_service.dart';
 import '../services/community_service.dart';
+import 'comment_thread_screen.dart';
 
 class CommentDetailScreen extends StatefulWidget {
   final BiteModel bite;
@@ -24,11 +25,12 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   
-  List<CommentModel> _comments = [];
+  List<CommentModel> _parentComments = [];
+  Map<String, int> _replyCounts = {};
   bool _isLoading = true;
   bool _isPostingComment = false;
   String _errorMessage = '';
-  bool _hasText = false; // Track if input has text
+  bool _hasText = false;
 
   @override
   void initState() {
@@ -60,10 +62,55 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
         _errorMessage = '';
       });
       
-      final comments = await _contentService.getCommentsForBite(widget.bite.id);
+      // Get all comments for this bite
+      final allComments = await _contentService.getCommentsForBite(widget.bite.id);
+      
+      // Separate parent comments (don't start with @) from replies
+      final parentComments = <CommentModel>[];
+      final replyMap = <String, List<CommentModel>>{};
+      
+      for (final comment in allComments) {
+        if (comment.text.startsWith('@')) {
+          // This is a reply - extract the parent username
+          final spaceIndex = comment.text.indexOf(' ');
+          if (spaceIndex > 1) {
+            final parentUsername = comment.text.substring(1, spaceIndex);
+            
+            // Find the parent comment by username
+            final parentComment = allComments.firstWhere(
+              (c) => c.displayName == parentUsername && !c.text.startsWith('@'),
+              orElse: () => comment, // fallback
+            );
+            
+            if (parentComment.id != comment.id) {
+              // Group replies by parent comment ID
+              replyMap.putIfAbsent(parentComment.id, () => []).add(comment);
+            } else {
+              // If no parent found, treat as parent comment
+              parentComments.add(comment);
+            }
+          } else {
+            // Malformed reply, treat as parent comment
+            parentComments.add(comment);
+          }
+        } else {
+          // This is a parent comment
+          parentComments.add(comment);
+        }
+      }
+      
+      // Calculate reply counts
+      final replyCounts = <String, int>{};
+      for (final parentComment in parentComments) {
+        replyCounts[parentComment.id] = replyMap[parentComment.id]?.length ?? 0;
+      }
+      
+      // Sort parent comments by date (newest first)
+      parentComments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
       setState(() {
-        _comments = comments;
+        _parentComments = parentComments;
+        _replyCounts = replyCounts;
         _isLoading = false;
       });
     } catch (e) {
@@ -89,16 +136,15 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
       
       if (success) {
         _commentController.clear();
-        // Hide keyboard
         FocusScope.of(context).unfocus();
         
         // Reload comments
         await _loadComments();
         
-        // Scroll to bottom to show new comment
+        // Scroll to top to show new comment
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
+            0,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
           );
@@ -141,24 +187,19 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
     Navigator.pushNamed(context, '/player', arguments: widget.bite);
   }
 
-  void _replyToComment(CommentModel comment) {
-    // Pre-fill the input with @username
-    _commentController.text = '@${comment.displayName} ';
-    _commentController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _commentController.text.length),
-    );
-    
-    // Focus the input field
-    FocusScope.of(context).requestFocus(FocusNode());
-    
-    // Scroll to bottom to show the input
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+  void _openCommentThread(CommentModel parentComment) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CommentThreadScreen(
+          bite: widget.bite,
+          parentComment: parentComment,
+        ),
+      ),
+    ).then((_) {
+      // Reload comments when returning from thread view
+      _loadComments();
+    });
   }
 
   @override
@@ -197,6 +238,8 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
   }
 
   Widget _buildBiteHeader() {
+    final totalComments = _parentComments.length + _replyCounts.values.fold(0, (sum, count) => sum + count);
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -266,7 +309,7 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
                     Icon(Icons.comment, size: 16, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
-                      '${_comments.length} ${_comments.length == 1 ? 'comment' : 'comments'}',
+                      '$totalComments ${totalComments == 1 ? 'comment' : 'comments'}',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
@@ -296,7 +339,7 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
   }
 
   Widget _buildCommentsSection() {
-    if (_comments.isEmpty) {
+    if (_parentComments.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -328,166 +371,172 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _comments.length,
+        itemCount: _parentComments.length,
         itemBuilder: (context, index) {
-          return _buildCommentItem(_comments[index]);
+          return _buildParentCommentItem(_parentComments[index]);
         },
       ),
     );
   }
 
-  Widget _buildCommentItem(CommentModel comment) {
-    // Check if this is a reply (starts with @username)
-    final isReply = comment.text.startsWith('@');
-    String displayText = comment.text;
-    String? replyingTo;
-    
-    if (isReply) {
-      final spaceIndex = comment.text.indexOf(' ');
-      if (spaceIndex > 1) {
-        replyingTo = comment.text.substring(1, spaceIndex);
-        displayText = comment.text.substring(spaceIndex + 1);
-      }
-    }
+  Widget _buildParentCommentItem(CommentModel comment) {
+    final replyCount = _replyCounts[comment.id] ?? 0;
     
     return Container(
-      margin: EdgeInsets.only(left: isReply ? 40 : 0), // Indent replies
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User avatar
-          CircleAvatar(
-            radius: isReply ? 16 : 20, // Smaller avatar for replies
-            backgroundColor: Colors.orange.shade200,
-            backgroundImage: comment.photoURL.isNotEmpty
-                ? NetworkImage(comment.photoURL)
-                : null,
-            child: comment.photoURL.isEmpty
-                ? Text(
-                    comment.displayName.isNotEmpty
-                        ? comment.displayName[0].toUpperCase()
-                        : '?',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: isReply ? 12 : 14,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          
-          // Comment content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // User name and time
-                Row(
-                  children: [
-                    Text(
-                      comment.displayName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: isReply ? 13 : 14,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      comment.formattedTime,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                
-                // Replying to indicator
-                if (isReply && replyingTo != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Text(
-                      'Replying to @$replyingTo',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.blue.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                ],
-                
-                // Comment text
-                Text(
-                  displayText,
-                  style: TextStyle(fontSize: isReply ? 13 : 14),
-                ),
-                const SizedBox(height: 8),
-                
-                // Action buttons
-                Row(
-                  children: [
-                    // Like button
-                    InkWell(
-                      onTap: () => _likeComment(comment),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.thumb_up_outlined,
-                              size: 16,
-                              color: Colors.grey.shade600,
-                            ),
-                            if (comment.likeCount > 0) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                '${comment.likeCount}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User avatar
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.orange.shade200,
+                backgroundImage: comment.photoURL.isNotEmpty
+                    ? NetworkImage(comment.photoURL)
+                    : null,
+                child: comment.photoURL.isEmpty
+                    ? Text(
+                        comment.displayName.isNotEmpty
+                            ? comment.displayName[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
-                      ),
-                    ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    // Reply button
-                    InkWell(
-                      onTap: () => _replyToComment(comment),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(
-                          'Reply',
-                          style: TextStyle(
-                            fontSize: 12,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              
+              // Comment content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // User name and time
+                    Row(
+                      children: [
+                        Text(
+                          comment.displayName,
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
+                            fontSize: 14,
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Text(
+                          comment.formattedTime,
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    
+                    // Comment text
+                    Text(
+                      comment.text,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Action buttons
+                    Row(
+                      children: [
+                        // Like button
+                        InkWell(
+                          onTap: () => _likeComment(comment),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.thumb_up_outlined,
+                                  size: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                                if (comment.likeCount > 0) ...[
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${comment.likeCount}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 16),
+                        
+                        // Reply button - always show for parent comments
+                        InkWell(
+                          onTap: () => _openCommentThread(comment),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Text(
+                              'Reply',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          
+          // Reply count and view thread button (if there are replies)
+          if (replyCount > 0) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.only(left: 44), // Align with comment text
+              child: InkWell(
+                onTap: () => _openCommentThread(comment),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 18,
+                        color: Colors.blue.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
