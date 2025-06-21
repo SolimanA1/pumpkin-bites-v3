@@ -7,7 +7,6 @@ import '../models/bite_model.dart';
 import '../services/audio_player_service.dart';
 import '../services/content_service.dart';
 import '../services/share_service.dart';
-import '../screens/share_dialog.dart';
 
 class PlayerScreen extends StatefulWidget {
   final BiteModel bite;
@@ -44,12 +43,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isSavingReaction = false;
   String _selectedReaction = '';
   final List<String> _reactionOptions = ['🤔', '🔥', '💡', '📝'];
-  final List<String> _reactionLabels = [
-    'Made me think',
-    'Game changer',
-    'Aha moment',
-    'Taking notes'
-  ];
   
   // Favorite system
   bool _isFavorite = false;
@@ -275,15 +268,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isSharing = true;
       });
       
-      // Show the share dialog with current position
-      await showDialog(
-        context: context,
-        builder: (context) => ShareDialog(
-          bite: widget.bite,
-          audioService: _audioService,
-          currentPosition: _position,
-          totalDuration: _duration ?? Duration(seconds: widget.bite.duration),
-        ),
+      // Use enhanced sharing with audio service and position information
+      await _shareService.shareBite(
+        context, 
+        widget.bite, 
+        audioService: _audioService,
+        currentPosition: _position,
+        totalDuration: _duration ?? Duration(seconds: widget.bite.duration),
       );
     } catch (e) {
       print('Error sharing bite: $e');
@@ -309,7 +300,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
       print("Audio URL: ${widget.bite.audioUrl}");
       print("Duration in bite model: ${widget.bite.duration} seconds");
       
-      // Play the bite
+      // Check if this bite is already playing
+      final currentBite = _audioService.currentBite;
+      final isAlreadyPlaying = currentBite != null && 
+                               currentBite.id == widget.bite.id && 
+                               _audioService.isPlaying;
+      
+      if (isAlreadyPlaying) {
+        print("Bite is already playing, not restarting");
+        
+        // Just set up the UI streams without restarting playback
+        setState(() {
+          _hasAttemptedPlay = true;
+          _isLoading = false;
+        });
+        
+        // Mark as listened (if not already)
+        _contentService.markBiteAsListened(widget.bite.id);
+        
+        // Set up position updates for UI
+        _setupStreams();
+        
+        return;
+      }
+      
+      print("Starting new playback");
+      
+      // Play the bite (this will restart if it's a different bite or not playing)
       await _audioService.playBite(widget.bite);
       
       // Mark as listened
@@ -320,67 +337,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _hasAttemptedPlay = true;
       });
       
-      // Set up position updates
-      _audioService.positionStream.listen((position) {
-        if (!mounted) return;
-        
-        // If we're receiving position updates, audio is playing, so exit loading state
-        if (_isLoading && position.inMilliseconds > 0) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-        
-        final duration = _audioService.duration ?? Duration(seconds: widget.bite.duration);
-        if (duration.inMilliseconds > 0) {
-          final progress = position.inMilliseconds / duration.inMilliseconds;
-          setState(() {
-            _position = position;
-            _progress = progress.clamp(0.0, 1.0);
-          });
-        }
-      }, onError: (error) {
-        print("Error from position stream: $error");
-      });
-      
-      // Set up duration updates
-      _audioService.durationStream.listen((duration) {
-        if (!mounted || duration == null) return;
-        print("Duration update from stream: $duration");
-        setState(() {
-          _duration = duration;
-          
-          // If we got a duration, we can exit loading state
-          if (_isLoading && _hasAttemptedPlay) {
-            _isLoading = false;
-          }
-        });
-      }, onError: (error) {
-        print("Error from duration stream: $error");
-      });
-      
-      // Set up player state updates
-      _audioService.playerStateStream.listen((state) {
-        if (!mounted) return;
-        print("Player state update: $state");
-        
-        // If we're receiving state updates and have attempted playback, exit loading state
-        if (_isLoading && _hasAttemptedPlay) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-        
-        setState(() {
-          _isPlaying = state.playing;
-          _isBuffering = state.processingState == ProcessingState.buffering;
-        });
-      }, onError: (error) {
-        print("Error from player state stream: $error");
-      });
+      // Set up streams
+      _setupStreams();
       
       // Important: Set loading to false here as a fallback
-      // This ensures we exit loading state even if streams don't emit
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && _isLoading) {
           print("Forcing loading state exit after delay");
@@ -399,6 +359,67 @@ class _PlayerScreenState extends State<PlayerScreen> {
         });
       }
     }
+  }
+  
+  void _setupStreams() {
+    // Set up position updates
+    _audioService.positionStream.listen((position) {
+      if (!mounted) return;
+      
+      // If we're receiving position updates, audio is playing, so exit loading state
+      if (_isLoading && position.inMilliseconds > 0) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      
+      final duration = _audioService.duration ?? Duration(seconds: widget.bite.duration);
+      if (duration.inMilliseconds > 0) {
+        final progress = position.inMilliseconds / duration.inMilliseconds;
+        setState(() {
+          _position = position;
+          _progress = progress.clamp(0.0, 1.0);
+        });
+      }
+    }, onError: (error) {
+      print("Error from position stream: $error");
+    });
+    
+    // Set up duration updates
+    _audioService.durationStream.listen((duration) {
+      if (!mounted || duration == null) return;
+      print("Duration update from stream: $duration");
+      setState(() {
+        _duration = duration;
+        
+        // If we got a duration, we can exit loading state
+        if (_isLoading && _hasAttemptedPlay) {
+          _isLoading = false;
+        }
+      });
+    }, onError: (error) {
+      print("Error from duration stream: $error");
+    });
+    
+    // Set up player state updates
+    _audioService.playerStateStream.listen((state) {
+      if (!mounted) return;
+      print("Player state update: $state");
+      
+      // If we're receiving state updates and have attempted playback, exit loading state
+      if (_isLoading && _hasAttemptedPlay) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      
+      setState(() {
+        _isPlaying = state.playing;
+        _isBuffering = state.processingState == ProcessingState.buffering;
+      });
+    }, onError: (error) {
+      print("Error from player state stream: $error");
+    });
   }
   
   void _togglePlayPause() {
@@ -431,12 +452,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
     return "$twoDigitMinutes:$twoDigitSeconds";
-  }
-  
-  // New method to navigate directly to the comment detail screen
-  void _navigateToDinnerTable() {
-    // Navigate directly to the comment detail screen for this specific bite
-    Navigator.of(context).pushNamed('/comment_detail', arguments: widget.bite);
   }
   
   @override
@@ -492,7 +507,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: 16),
             Text(
               'Unable to Play Audio',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
             Text(
@@ -520,12 +535,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             // Title and description
             Text(
               widget.bite.title,
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
               widget.bite.description,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 16),
             
@@ -634,80 +649,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
             
             _isSavingReaction
                 ? const Center(child: CircularProgressIndicator())
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(
-                        _reactionOptions.length,
-                        (index) {
-                          final emoji = _reactionOptions[index];
-                          final label = _reactionLabels[index];
-                          final isSelected = _selectedReaction == emoji;
-                          
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              InkWell(
-                                onTap: () => _saveReaction(emoji),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isSelected
-                                        ? Theme.of(context).primaryColor.withOpacity(0.2)
-                                        : Colors.transparent,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? Theme.of(context).primaryColor
-                                          : Colors.grey.shade300,
-                                      width: isSelected ? 2 : 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    emoji,
-                                    style: const TextStyle(fontSize: 24),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 12, 
-                                  color: isSelected 
-                                      ? Theme.of(context).primaryColor
-                                      : Colors.grey.shade600,
-                                  fontWeight: isSelected 
-                                      ? FontWeight.bold 
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _reactionOptions.map((emoji) {
+                      final isSelected = _selectedReaction == emoji;
+                      return InkWell(
+                        onTap: () => _saveReaction(emoji),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected
+                                ? Theme.of(context).primaryColor.withOpacity(0.2)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
-            
-            const SizedBox(height: 24),
-            
-            // Join the dinner table button
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: _navigateToDinnerTable, // Use the new navigation method
-                icon: const Icon(Icons.forum),
-                label: const Text('Join the dinner table'), 
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
             
             const SizedBox(height: 16),
             

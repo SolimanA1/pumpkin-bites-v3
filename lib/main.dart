@@ -5,13 +5,11 @@ import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/auth/register_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
 import 'package:pumpkin_bites_new/screens/library_screen.dart';
-// Replacing DinnerTableScreen with UnifiedDinnerTableScreen
 import 'package:pumpkin_bites_new/screens/unified_dinner_table_screen.dart';
 import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
 import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
 import 'package:pumpkin_bites_new/screens/share_history_screen.dart';
-import 'package:pumpkin_bites_new/screens/comment_detail_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
@@ -19,8 +17,11 @@ import 'package:pumpkin_bites_new/models/bite_model.dart';
 import 'package:pumpkin_bites_new/floating_player_bar.dart';
 import 'firebase_options.dart';
 
-// Global variable to track currently playing bite
-BiteModel? currentlyPlayingBite;
+// Global key to access the navigator state
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Audio service reference
+final AudioPlayerService _audioService = AudioPlayerService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,19 +34,56 @@ void main() async {
   ShareService(); // Initialize the sharing singleton
   
   // Initialize audio player
-  final audioService = AudioPlayerService();
-  await audioService.init();
+  await _audioService.init();
   
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isAudioPlaying = false;
+  BiteModel? _currentBite;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAudioListener();
+  }
+  
+  void _setupAudioListener() {
+    // Listen to player state changes to show/hide the floating player
+    _audioService.playerStateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isAudioPlaying = state.playing;
+          _currentBite = _audioService.currentBite;
+        });
+      }
+    });
+  }
+
+  void _navigateToPlayer() {
+    // Only navigate if there's a current bite
+    if (_currentBite != null) {
+      // Navigate to player screen without restarting playback
+      navigatorKey.currentState?.pushNamed(
+        '/player',
+        arguments: _currentBite,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Pumpkin Bites',
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         primarySwatch: Colors.orange,
         visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -61,32 +99,57 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthWrapper(),
+      home: _buildHomeWithFloatingPlayer(),
       routes: {
-        '/home': (context) => const HomeScreen(),
-        '/library': (context) => const LibraryScreen(),
-        '/dinner_table': (context) => const UnifiedDinnerTableScreen(), // Changed to UnifiedDinnerTableScreen
-        '/profile': (context) => const ProfileScreen(),
-        '/diagnostics': (context) => const DiagnosticScreen(),
-        '/share_history': (context) => const ShareHistoryScreen(),
+        '/home': (context) => _wrapWithFloatingPlayer(const HomeScreen()),
+        '/library': (context) => _wrapWithFloatingPlayer(const LibraryScreen()),
+        '/dinner_table': (context) => _wrapWithFloatingPlayer(const UnifiedDinnerTableScreen()),
+        '/profile': (context) => _wrapWithFloatingPlayer(const ProfileScreen()),
+        '/diagnostics': (context) => _wrapWithFloatingPlayer(const DiagnosticScreen()),
+        '/share_history': (context) => _wrapWithFloatingPlayer(const ShareHistoryScreen()),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {
         if (settings.name == '/player') {
           final args = settings.arguments as BiteModel;
-          // Store the currently playing bite for the floating player
-          currentlyPlayingBite = args;
           return MaterialPageRoute(
             builder: (context) => PlayerScreen(bite: args),
-          );
-        } else if (settings.name == '/comment_detail') {
-          final args = settings.arguments as BiteModel;
-          return MaterialPageRoute(
-            builder: (context) => CommentDetailScreen(bite: args),
           );
         }
         return null;
       },
+    );
+  }
+  
+  Widget _buildHomeWithFloatingPlayer() {
+    return Stack(
+      children: [
+        const AuthWrapper(),
+        
+        // Floating player bar positioned at the bottom if audio is playing
+        if (_isAudioPlaying && _currentBite != null)
+          FloatingPlayerBar(
+            bite: _currentBite!,
+            onTap: _navigateToPlayer,
+            audioService: _audioService,
+          ),
+      ],
+    );
+  }
+  
+  Widget _wrapWithFloatingPlayer(Widget child) {
+    return Stack(
+      children: [
+        child,
+        
+        // Floating player bar positioned at the bottom if audio is playing
+        if (_isAudioPlaying && _currentBite != null)
+          FloatingPlayerBar(
+            bite: _currentBite!,
+            onTap: _navigateToPlayer,
+            audioService: _audioService,
+          ),
+      ],
     );
   }
 }
@@ -126,7 +189,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
-  final AudioPlayerService _audioService = AudioPlayerService();
 
   @override
   void initState() {
@@ -136,7 +198,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const LibraryScreen(),
-    const UnifiedDinnerTableScreen(), // Changed to UnifiedDinnerTableScreen
+    const UnifiedDinnerTableScreen(),
     const ProfileScreen(),
   ];
 
@@ -153,57 +215,36 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  void _navigateToPlayer() {
-    if (currentlyPlayingBite != null) {
-      Navigator.of(context).pushNamed('/player', arguments: currentlyPlayingBite);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Check if audio is playing to show the floating player
-    final isPlaying = _audioService.isPlaying;
-    
     return Scaffold(
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         children: _screens,
       ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Floating player bar (only show if audio is playing)
-          if (isPlaying && currentlyPlayingBite != null)
-            FloatingPlayerBar(
-              bite: currentlyPlayingBite!,
-              onTap: _navigateToPlayer,
-            ),
-          // Regular bottom navigation
-          BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            currentIndex: _currentIndex,
-            onTap: _onItemTapped,
-            selectedItemColor: Colors.orange,
-            unselectedItemColor: Colors.grey,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.book),
-                label: 'Library',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.people),
-                label: 'Dinner Table',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book),
+            label: 'Library',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Dinner Table',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),

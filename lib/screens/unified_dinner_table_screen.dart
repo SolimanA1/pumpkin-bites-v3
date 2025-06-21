@@ -9,17 +9,15 @@ class UnifiedDinnerTableScreen extends StatefulWidget {
   const UnifiedDinnerTableScreen({Key? key}) : super(key: key);
 
   @override
-  State<UnifiedDinnerTableScreen> createState() => _UnifiedDinnerTableScreenState();
+  _UnifiedDinnerTableScreenState createState() => _UnifiedDinnerTableScreenState();
 }
 
 class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
   final ContentService _contentService = ContentService();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  
-  List<BiteModel> _bites = [];
+  List<BiteModel> _availableBites = [];
   bool _isLoading = true;
   String _errorMessage = '';
-  BiteModel? _highlightedBite; // For highlighting the bite from player screen
+  String? _selectedBiteId;
 
   @override
   void initState() {
@@ -34,24 +32,253 @@ class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
         _errorMessage = '';
       });
 
-      // Load all available bites for discussion
+      // Load available bites
       final bites = await _contentService.getAvailableBites();
       
       setState(() {
-        _bites = bites;
+        _availableBites = bites;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading dinner table content: $e');
+      print('Error loading content: $e');
       setState(() {
-        _errorMessage = 'Failed to load content: $e';
+        _errorMessage = 'Failed to load discussions: $e';
         _isLoading = false;
       });
     }
   }
 
   void _navigateToCommentDetail(BiteModel bite) {
-    Navigator.pushNamed(context, '/comment_detail', arguments: bite);
+    print('Navigating to comment detail for: ${bite.title}'); // Debug print
+    try {
+      // Use the new CommentDetailScreen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CommentDetailScreen(bite: bite),
+        ),
+      );
+    } catch (e) {
+      print('Error navigating to comment detail: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening comments: $e')),
+      );
+    }
+  }
+
+  void _playBite(BiteModel bite) {
+    print('Playing bite: ${bite.title}'); // Debug print
+    Navigator.pushNamed(context, '/player', arguments: bite);
+  }
+
+  Widget _buildBiteCard(BiteModel bite) {
+    final isSelected = _selectedBiteId == bite.id;
+    
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.0),
+        side: isSelected
+            ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
+            : BorderSide.none,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            print('ENTIRE CARD TAPPED: ${bite.title}'); // More obvious debug print
+            _navigateToCommentDetail(bite);
+          },
+          borderRadius: BorderRadius.circular(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Thumbnail image with overlay
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12.0),
+                        topRight: Radius.circular(12.0),
+                      ),
+                      child: bite.thumbnailUrl.isNotEmpty
+                          ? Image.network(
+                              bite.thumbnailUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.image, size: 40, color: Colors.grey),
+                            ),
+                    ),
+                    // Category and comment count overlay
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.7),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              bite.category,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                const Icon(Icons.comment, size: 14, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${bite.commentCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Play button overlay - CRITICAL: This needs to stop event propagation
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Material(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: () {
+                            print('PLAY BUTTON TAPPED: ${bite.title}'); // Debug print
+                            _playBite(bite);
+                          },
+                          customBorder: const CircleBorder(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Icon(
+                              Icons.play_circle_filled,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content section
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      bite.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      bite.description,
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Duration: ${bite.formattedDuration}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          'By ${bite.authorName}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // "Join discussion" button bar
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(12.0),
+                    bottomRight: Radius.circular(12.0),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 18,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tap anywhere to join the discussion',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -64,9 +291,18 @@ class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
               ? _buildErrorView()
-              : _bites.isEmpty
+              : _availableBites.isEmpty
                   ? _buildEmptyView()
-                  : _buildBitesList(),
+                  : RefreshIndicator(
+                      onRefresh: _loadContent,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        itemCount: _availableBites.length,
+                        itemBuilder: (context, index) {
+                          return _buildBiteCard(_availableBites[index]);
+                        },
+                      ),
+                    ),
     );
   }
 
@@ -85,13 +321,13 @@ class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
             const SizedBox(height: 16),
             Text(
               _errorMessage,
-              textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadContent,
-              child: const Text('Try Again'),
+              child: const Text('Retry'),
             ),
           ],
         ),
@@ -105,14 +341,26 @@ class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(
-            Icons.people,
-            size: 64,
+            Icons.chat_bubble_outline,
+            size: 48,
             color: Colors.grey,
           ),
           const SizedBox(height: 16),
           const Text(
-            'No bites available for discussion yet.',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
+            'No discussions available',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Check back later or create a new discussion',
+            style: TextStyle(
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           ElevatedButton(
@@ -120,178 +368,6 @@ class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
             child: const Text('Refresh'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBitesList() {
-    return RefreshIndicator(
-      onRefresh: _loadContent,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _bites.length,
-        itemBuilder: (context, index) {
-          final bite = _bites[index];
-          final isHighlighted = _highlightedBite?.id == bite.id;
-          
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: isHighlighted
-                  ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
-                  : BorderSide.none,
-            ),
-            child: InkWell(
-              onTap: () => _navigateToCommentDetail(bite),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Bite info row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Thumbnail
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: bite.thumbnailUrl.isNotEmpty
-                                ? Image.network(
-                                    bite.thumbnailUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        color: Colors.grey.shade300,
-                                        child: const Icon(
-                                          Icons.image_not_supported,
-                                          size: 24,
-                                          color: Colors.grey,
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : Container(
-                                    color: Colors.grey.shade300,
-                                    child: const Icon(
-                                      Icons.music_note,
-                                      size: 24,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        
-                        // Bite details
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                bite.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                bite.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.category,
-                                    size: 16,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    bite.category,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.comment,
-                                    size: 16,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${bite.commentCount} comments',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    // Action buttons
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              // Navigate to player screen
-                              Navigator.pushNamed(
-                                context,
-                                '/player',
-                                arguments: bite,
-                              );
-                            },
-                            icon: const Icon(Icons.play_arrow, size: 16),
-                            label: const Text('Play'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: () => _navigateToCommentDetail(bite),
-                            icon: const Icon(Icons.comment, size: 16),
-                            label: const Text('Join Discussion'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }

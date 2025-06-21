@@ -13,6 +13,9 @@ class AudioPlayerService {
   // Current bite being played
   BiteModel? _currentBite;
   
+  // Get current bite being played
+  BiteModel? get currentBite => _currentBite;
+
   // Initialize player
   Future<void> init() async {
     print("Initializing audio player service");
@@ -115,11 +118,6 @@ class AudioPlayerService {
     await _player.play();
   }
   
-  // Stop playback
-  Future<void> stop() async {
-    await _player.stop();
-  }
-  
   // Seek to position
   Future<void> seekTo(Duration position) async {
     await _player.seek(position);
@@ -127,9 +125,6 @@ class AudioPlayerService {
   
   // Get current position
   Duration get position => _player.position;
-  
-  // Get current position - method version for compatibility
-  Duration getCurrentPosition() => _player.position;
   
   // Get current duration
   Duration? get duration {
@@ -147,11 +142,6 @@ class AudioPlayerService {
     
     // As a last resort, default to 3 minutes
     return const Duration(minutes: 3);
-  }
-  
-  // Get duration - method version for compatibility
-  Duration? getCurrentDuration() {
-    return duration;
   }
   
   // Get position stream
