@@ -39,10 +39,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Timer? _loadingTimeoutTimer;
   Timer? _positionUpdateTimer;
   
-  // Reaction system
+  // Reaction system with descriptions - ENHANCED!
   bool _isSavingReaction = false;
   String _selectedReaction = '';
-  final List<String> _reactionOptions = ['🤔', '🔥', '💡', '📝'];
+  final Map<String, String> _reactionOptions = {
+    '🤔': 'Made me think',
+    '🔥': 'Game changer', 
+    '💡': 'Aha moment',
+    '📝': 'Worth noting',
+  };
   
   // Favorite system
   bool _isFavorite = false;
@@ -193,8 +198,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isSavingReaction = false;
       });
       
+      final reactionName = _reactionOptions[reaction] ?? reaction;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reaction saved: $reaction')),
+        SnackBar(
+          content: Text('Reaction saved: $reactionName'),
+          backgroundColor: const Color(0xFFF56500),
+        ),
       );
     } catch (e) {
       print('Error saving reaction: $e');
@@ -248,7 +257,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         });
         
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to favorites')),
+          const SnackBar(
+            content: Text('Added to favorites'),
+            backgroundColor: Color(0xFFF56500),
+          ),
         );
       }
     } catch (e) {
@@ -286,6 +298,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isSharing = false;
       });
     }
+  }
+  
+  // FIXED: Navigate to THIS bite's comment discussion
+  void _navigateToCommentDetail() {
+    Navigator.pushNamed(
+      context, 
+      '/comment_detail', 
+      arguments: widget.bite,
+    );
   }
   
   Future<void> _initPlayer() async {
@@ -476,7 +497,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
                     ),
                   )
                 : const Icon(Icons.share),
@@ -485,7 +506,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ],
       ),
       body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(
+              color: Color(0xFFF56500),
+            ))
           : _isError 
               ? _buildErrorView()
               : _buildPlayerView(),
@@ -535,41 +558,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
             // Title and description
             Text(
               widget.bite.title,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               widget.bite.description,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.grey.shade700,
+              ),
             ),
             const SizedBox(height: 16),
             
-            // Image if available
+            // Image if available - KEPT original size (looks good!)
             if (widget.bite.thumbnailUrl.isNotEmpty)
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  widget.bite.thumbnailUrl,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 200,
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported, size: 50),
-                      ),
-                    );
-                  },
+                borderRadius: BorderRadius.circular(12),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9, // Back to original ratio
+                  child: Image.network(
+                    widget.bite.thumbnailUrl,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: Icon(Icons.image_not_supported, size: 50),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 24), // Reduced spacing
             
             // Player controls
             Slider(
               value: _progress,
+              activeColor: const Color(0xFFF56500),
               onChanged: (value) {
                 if (_duration != null) {
                   final position = Duration(
@@ -608,6 +637,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   onPressed: _skipBackward,
                   icon: const Icon(Icons.replay_10),
                   iconSize: 36,
+                  color: const Color(0xFFF56500),
                 ),
                 const SizedBox(width: 16),
                 IconButton(
@@ -620,84 +650,155 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             : Icons.play_circle_filled,
                   ),
                   iconSize: 64,
-                  color: Theme.of(context).primaryColor,
+                  color: const Color(0xFFF56500),
                 ),
                 const SizedBox(width: 16),
                 IconButton(
                   onPressed: _skipForward,
                   icon: const Icon(Icons.forward_30),
                   iconSize: 36,
+                  color: const Color(0xFFF56500),
                 ),
               ],
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 24), // Reduced spacing
             
-            // Reaction buttons
+            // COMPACT: Reaction buttons in ONE ROW - no scrolling needed
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'How did you feel about this content?',
+                'How did this bite make you feel?',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 16, // Slightly smaller
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 12), // Reduced spacing
             
             _isSavingReaction
-                ? const Center(child: CircularProgressIndicator())
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: _reactionOptions.map((emoji) {
-                      final isSelected = _selectedReaction == emoji;
-                      return InkWell(
-                        onTap: () => _saveReaction(emoji),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isSelected
-                                ? Theme.of(context).primaryColor.withOpacity(0.2)
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey.shade300,
-                              width: isSelected ? 2 : 1,
+                ? const Center(child: CircularProgressIndicator(
+                    color: Color(0xFFF56500),
+                  ))
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: _reactionOptions.entries.map((entry) {
+                        final emoji = entry.key;
+                        final description = entry.value;
+                        final isSelected = _selectedReaction == emoji;
+                        final index = _reactionOptions.keys.toList().indexOf(emoji);
+                        
+                        return Container(
+                          margin: EdgeInsets.only(right: index < _reactionOptions.length - 1 ? 12 : 0),
+                          child: InkWell(
+                            onTap: () => _saveReaction(emoji),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: 80, // Fixed width for consistency
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: isSelected
+                                    ? const Color(0xFFF56500).withOpacity(0.1)
+                                    : Colors.grey.shade100,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFFF56500)
+                                      : Colors.grey.shade300,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    emoji,
+                                    style: const TextStyle(fontSize: 24), // Slightly smaller
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    description,
+                                    style: TextStyle(
+                                      fontSize: 10, // Smaller text
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected 
+                                          ? const Color(0xFFF56500) 
+                                          : Colors.grey.shade700,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          child: Text(
-                            emoji,
-                            style: const TextStyle(fontSize: 24),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
+                    ),
                   ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 24), // Reduced spacing
             
-            // Share content button
-            Container(
-              width: double.infinity,
+            // COMPACT: Both buttons in same section, no scrolling
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: _isSharing ? null : _shareBite,
-                icon: const Icon(Icons.share),
-                label: const Text('Share this bite with friends'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              child: Column(
+                children: [
+                  // FIXED: Join THIS bite's discussion
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _navigateToCommentDetail,
+                      icon: const Icon(
+                        Icons.people,
+                        color: Color(0xFFF56500),
+                      ),
+                      label: const Text(
+                        'Join the discussion',
+                        style: TextStyle(
+                          color: Color(0xFFF56500),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14), // Slightly smaller
+                        side: const BorderSide(
+                          color: Color(0xFFF56500),
+                          width: 2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  
+                  const SizedBox(height: 12), // Reduced spacing
+                  
+                  // Share button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isSharing ? null : _shareBite,
+                      icon: const Icon(Icons.share),
+                      label: const Text('Share this bite with friends'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF56500),
+                        padding: const EdgeInsets.symmetric(vertical: 14), // Slightly smaller
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            
-            const SizedBox(height: 32),
           ],
         ),
       ),

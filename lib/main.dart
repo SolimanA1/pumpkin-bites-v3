@@ -10,6 +10,7 @@ import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
 import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
 import 'package:pumpkin_bites_new/screens/share_history_screen.dart';
+import 'package:pumpkin_bites_new/screens/comment_detail_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
@@ -47,7 +48,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isAudioPlaying = false;
+  // FIXED: Changed logic - show floating bar when there's a loaded bite, not just when playing
+  bool _hasActiveBite = false;  // Changed from _isAudioPlaying
   BiteModel? _currentBite;
 
   @override
@@ -57,13 +59,25 @@ class _MyAppState extends State<MyApp> {
   }
   
   void _setupAudioListener() {
-    // Listen to player state changes to show/hide the floating player
+    // FIXED: Listen to player state changes but show floating bar for ANY loaded content
     _audioService.playerStateStream.listen((state) {
       if (mounted) {
+        final currentBite = _audioService.currentBite;
+        
+        print("=== MAIN APP AUDIO LISTENER ===");
+        print("Player state: ${state.playing}");
+        print("Processing state: ${state.processingState}");
+        print("Current bite: ${currentBite?.title}");
+        print("Should show floating bar: ${currentBite != null}");
+        
         setState(() {
-          _isAudioPlaying = state.playing;
-          _currentBite = _audioService.currentBite;
+          // Show floating bar if there's ANY loaded bite (playing OR paused)
+          _hasActiveBite = currentBite != null;
+          _currentBite = currentBite;
         });
+        
+        print("Updated _hasActiveBite: $_hasActiveBite");
+        print("=== END MAIN APP AUDIO LISTENER ===");
       }
     });
   }
@@ -171,6 +185,12 @@ class _MyAppState extends State<MyApp> {
           return MaterialPageRoute(
             builder: (context) => PlayerScreen(bite: args),
           );
+        } else if (settings.name == '/comment_detail') {
+          final args = settings.arguments as BiteModel;
+          // Import the CommentDetailScreen at the top of main.dart
+          return MaterialPageRoute(
+            builder: (context) => CommentDetailScreen(bite: args),
+          );
         }
         return null;
       },
@@ -182,8 +202,8 @@ class _MyAppState extends State<MyApp> {
       children: [
         const AuthWrapper(),
         
-        // Floating player bar positioned at the bottom if audio is playing
-        if (_isAudioPlaying && _currentBite != null)
+        // FIXED: Show floating player if there's ANY active bite (playing OR paused)
+        if (_hasActiveBite && _currentBite != null)
           FloatingPlayerBar(
             bite: _currentBite!,
             onTap: _navigateToPlayer,
@@ -198,8 +218,8 @@ class _MyAppState extends State<MyApp> {
       children: [
         child,
         
-        // Floating player bar positioned at the bottom if audio is playing
-        if (_isAudioPlaying && _currentBite != null)
+        // FIXED: Show floating player if there's ANY active bite (playing OR paused)
+        if (_hasActiveBite && _currentBite != null)
           FloatingPlayerBar(
             bite: _currentBite!,
             onTap: _navigateToPlayer,

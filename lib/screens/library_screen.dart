@@ -18,16 +18,15 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
   List<BiteModel> _allBites = [];
-  List<BiteModel> _listenedBites = [];
-  List<BiteModel> _giftedBites = [];
+  List<BiteModel> _favoriteBites = [];
   bool _isLoading = true;
   String _errorMessage = '';
-  List<String> _favoriteBites = [];
+  List<String> _favoriteIds = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this); // CHANGED: Only 2 tabs now
     _loadContent();
     _loadFavorites();
   }
@@ -47,8 +46,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       if (allBitesQuery.docs.isEmpty) {
         setState(() {
           _allBites = [];
-          _listenedBites = [];
-          _giftedBites = [];
+          _favoriteBites = [];
           _isLoading = false;
           _errorMessage = 'No content available. Use Diagnostics to create test content.';
         });
@@ -59,86 +57,17 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       final allBites = allBitesQuery.docs.map((doc) => BiteModel.fromFirestore(doc)).toList();
       print('Found ${allBites.length} total bites');
       
-      // Get user data
-      final user = _auth.currentUser;
-      if (user == null) {
-        setState(() {
-          _allBites = allBites;
-          _listenedBites = [];
-          _giftedBites = [];
-          _isLoading = false;
-        });
-        return;
-      }
+      // Sort by date, newest first
+      allBites.sort((a, b) => b.date.compareTo(a.date));
       
-      // Get user document to check listened and gifted bites
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) {
-        setState(() {
-          _allBites = allBites;
-          _listenedBites = [];
-          _giftedBites = [];
-          _isLoading = false;
-        });
-        return;
-      }
-      
-      final userData = userDoc.data() as Map<String, dynamic>?;
-      if (userData == null) {
-        setState(() {
-          _allBites = allBites;
-          _listenedBites = [];
-          _giftedBites = [];
-          _isLoading = false;
-        });
-        return;
-      }
-      
-      // Parse listened bites
-      final listenedIds = List<String>.from(userData['listenedBites'] ?? []);
-      print('Found ${listenedIds.length} listened bite IDs');
-      
-      final listened = allBites.where((bite) => listenedIds.contains(bite.id)).toList();
-      
-      // Parse gifted episodes
-      final giftedEpisodesRaw = userData['giftedEpisodes'] as List<dynamic>? ?? [];
-      print('Found ${giftedEpisodesRaw.length} gifted episodes');
-      
-      final giftedBiteIds = <String>[];
-      final giftedBiteInfo = <String, Map<String, String>>{};
-      
-      for (final gift in giftedEpisodesRaw) {
-        if (gift is Map<String, dynamic> && gift.containsKey('biteId')) {
-          final biteId = gift['biteId'] as String?;
-          if (biteId != null && biteId.isNotEmpty) {
-            giftedBiteIds.add(biteId);
-            giftedBiteInfo[biteId] = {
-              'senderName': gift['senderName'] as String? ?? 'Someone',
-              'message': gift['message'] as String? ?? 'Enjoy this content!',
-            };
-          }
-        }
-      }
-      
-      final giftedBites = <BiteModel>[];
-      for (final bite in allBites) {
-        if (giftedBiteIds.contains(bite.id)) {
-          final info = giftedBiteInfo[bite.id];
-          if (info != null) {
-            giftedBites.add(bite.asGiftedBite(
-              senderName: info['senderName'] ?? 'Someone',
-              message: info['message'] ?? 'Enjoy this content!',
-            ));
-          }
-        }
-      }
-
       setState(() {
         _allBites = allBites;
-        _listenedBites = listened;
-        _giftedBites = giftedBites;
         _isLoading = false;
       });
+      
+      // Load favorites after all content is loaded
+      await _loadFavoriteBites();
+      
     } catch (e) {
       print('Error loading library content: $e');
       setState(() {
@@ -161,10 +90,35 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
       final favorites = userData['favorites'] as List<dynamic>? ?? [];
       setState(() {
-        _favoriteBites = favorites.map((item) => item.toString()).toList();
+        _favoriteIds = favorites.map((item) => item.toString()).toList();
       });
     } catch (e) {
       print('Error loading favorites: $e');
+    }
+  }
+  
+  Future<void> _loadFavoriteBites() async {
+    try {
+      if (_favoriteIds.isEmpty) {
+        setState(() {
+          _favoriteBites = [];
+        });
+        return;
+      }
+      
+      // Filter all bites to get only favorites
+      final favoriteBites = _allBites.where((bite) => _favoriteIds.contains(bite.id)).toList();
+      
+      // Sort favorites by date, newest first
+      favoriteBites.sort((a, b) => b.date.compareTo(a.date));
+      
+      setState(() {
+        _favoriteBites = favoriteBites;
+      });
+      
+      print('Loaded ${_favoriteBites.length} favorite bites');
+    } catch (e) {
+      print('Error loading favorite bites: $e');
     }
   }
 
@@ -179,7 +133,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           'favorites': FieldValue.arrayUnion([biteId]),
         });
         setState(() {
-          _favoriteBites.add(biteId);
+          _favoriteIds.add(biteId);
         });
       } else {
         // Remove from favorites
@@ -187,9 +141,13 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           'favorites': FieldValue.arrayRemove([biteId]),
         });
         setState(() {
-          _favoriteBites.remove(biteId);
+          _favoriteIds.remove(biteId);
         });
       }
+      
+      // Reload favorite bites to update the favorites tab
+      await _loadFavoriteBites();
+      
     } catch (e) {
       print('Error toggling favorite: $e');
     }
@@ -199,8 +157,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     Navigator.of(context).pushNamed('/player', arguments: bite);
   }
 
-  Widget _buildBiteCard(BiteModel bite, bool showGiftBadge) {
-    final isFavorite = _favoriteBites.contains(bite.id);
+  Widget _buildBiteCard(BiteModel bite) {
+    final isFavorite = _favoriteIds.contains(bite.id);
     
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -268,55 +226,45 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   ),
                 ),
                 
-                // Gift badge
-                if (showGiftBadge && bite.isGifted)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.card_giftcard,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Gift from ${bite.giftedBy}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                // Day badge
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF56500),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'DAY ${bite.dayNumber}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
                       ),
                     ),
                   ),
+                ),
                 
                 // Favorite button
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Colors.black.withOpacity(0.5),
-                    child: IconButton(
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: isFavorite ? Colors.red : Colors.white,
+                  child: Material(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () => _toggleFavorite(bite.id, !isFavorite),
+                      customBorder: const CircleBorder(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          size: 20,
+                          color: isFavorite ? Colors.red : Colors.white,
+                        ),
                       ),
-                      onPressed: () => _toggleFavorite(bite.id, !isFavorite),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
                   ),
                 ),
@@ -341,8 +289,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   const SizedBox(height: 4),
                   Text(
                     bite.description,
-                    style: const TextStyle(
-                      color: Colors.grey,
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
                       fontSize: 14,
                     ),
                     maxLines: 2,
@@ -351,25 +299,25 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.category,
                         size: 14,
-                        color: Colors.grey,
+                        color: Colors.grey.shade600,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         bite.category,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey,
+                          color: Colors.grey.shade600,
                         ),
                       ),
                       const Spacer(),
                       Text(
                         '${bite.date.day}/${bite.date.month}/${bite.date.year}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey,
+                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
@@ -383,41 +331,51 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildBitesList(List<BiteModel> bites, String emptyMessage, bool showGiftBadge) {
+  Widget _buildBitesList(List<BiteModel> bites, String emptyMessage, String emptyIcon) {
     if (bites.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.folder_open,
+            Icon(
+              emptyIcon == 'folder' ? Icons.folder_open : Icons.favorite_border,
               size: 64,
-              color: Colors.grey,
+              color: Colors.grey.shade400,
             ),
             const SizedBox(height: 16),
             Text(
               emptyMessage,
-              style: const TextStyle(
-                color: Colors.grey,
+              style: TextStyle(
+                color: Colors.grey.shade600,
                 fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: _loadContent,
-              child: const Text('Refresh'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF56500),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      itemCount: bites.length,
-      itemBuilder: (context, index) {
-        return _buildBiteCard(bites[index], showGiftBadge);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadContent,
+      color: const Color(0xFFF56500),
+      child: ListView.builder(
+        itemCount: bites.length,
+        itemBuilder: (context, index) {
+          return _buildBiteCard(bites[index]);
+        },
+      ),
     );
   }
 
@@ -428,15 +386,27 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         title: const Text('My Library'),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: const Color(0xFFF56500),
+          unselectedLabelColor: Colors.grey.shade600,
+          indicatorColor: const Color(0xFFF56500),
           tabs: const [
-            Tab(text: 'All Content'),
-            Tab(text: 'History'),
-            Tab(text: 'Gifted'),
+            Tab(
+              icon: Icon(Icons.library_books),
+              text: 'All Content',
+            ),
+            Tab(
+              icon: Icon(Icons.favorite),
+              text: 'Favorites',
+            ),
           ],
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFFF56500),
+              ),
+            )
           : _errorMessage.isNotEmpty
               ? Center(
                   child: Padding(
@@ -444,20 +414,26 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.error_outline,
                           size: 64,
-                          color: Colors.red,
+                          color: Colors.red.shade300,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           _errorMessage,
-                          style: const TextStyle(color: Colors.red),
+                          style: TextStyle(
+                            color: Colors.red.shade600,
+                            fontSize: 16,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _loadContent,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF56500),
+                          ),
                           child: const Text('Retry'),
                         ),
                       ],
@@ -469,18 +445,13 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   children: [
                     _buildBitesList(
                       _allBites,
-                      'No content found. Use Diagnostics to create test content.',
-                      false,
+                      'No content found.\nUse Diagnostics to create test content or check your connection.',
+                      'folder',
                     ),
                     _buildBitesList(
-                      _listenedBites,
-                      'No listening history yet. Play some content to see it here!',
-                      false,
-                    ),
-                    _buildBitesList(
-                      _giftedBites,
-                      'No gifted episodes yet. Friends can send you content that will appear here!',
-                      true,
+                      _favoriteBites,
+                      'No favorites yet!\nTap the ❤️ icon on any bite to add it to your favorites.',
+                      'favorite',
                     ),
                   ],
                 ),
