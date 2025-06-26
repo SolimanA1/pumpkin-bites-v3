@@ -26,7 +26,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this); // CHANGED: Only 2 tabs now
+    _tabController = TabController(length: 2, vsync: this);
     _loadContent();
     _loadFavorites();
   }
@@ -40,7 +40,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
       print('Loading library content...');
       
-      // First, get all bites to ensure we have content
+      // Get all bites to ensure we have content
       final allBitesQuery = await _firestore.collection('bites').get();
       
       if (allBitesQuery.docs.isEmpty) {
@@ -57,8 +57,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       final allBites = allBitesQuery.docs.map((doc) => BiteModel.fromFirestore(doc)).toList();
       print('Found ${allBites.length} total bites');
       
-      // Sort by date, newest first
-      allBites.sort((a, b) => b.date.compareTo(a.date));
+      // FIXED: Sort by dayNumber, newest/highest first (like Instagram/social media)
+      // Higher day numbers (Day 5, Day 4, Day 3...) appear at the top
+      allBites.sort((a, b) => b.dayNumber.compareTo(a.dayNumber));
       
       setState(() {
         _allBites = allBites;
@@ -109,8 +110,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       // Filter all bites to get only favorites
       final favoriteBites = _allBites.where((bite) => _favoriteIds.contains(bite.id)).toList();
       
-      // Sort favorites by date, newest first
-      favoriteBites.sort((a, b) => b.date.compareTo(a.date));
+      // FIXED: Sort favorites by dayNumber, newest/highest first (like Instagram/social media)
+      favoriteBites.sort((a, b) => b.dayNumber.compareTo(a.dayNumber));
       
       setState(() {
         _favoriteBites = favoriteBites;
@@ -226,7 +227,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   ),
                 ),
                 
-                // Day badge
+                // Day badge - ENHANCED: Shows newest first
                 Positioned(
                   top: 8,
                   left: 8,
@@ -313,8 +314,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         ),
                       ),
                       const Spacer(),
+                      // ENHANCED: Show relative date for social media feel
                       Text(
-                        '${bite.date.day}/${bite.date.month}/${bite.date.year}',
+                        _getRelativeDate(bite.date),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -329,6 +331,29 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         ),
       ),
     );
+  }
+
+  // ADDED: Get relative date like social media (e.g., "2 days ago", "1 week ago")
+  String _getRelativeDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return months == 1 ? '1 month ago' : '$months months ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return years == 1 ? '1 year ago' : '$years years ago';
+    }
   }
 
   Widget _buildBitesList(List<BiteModel> bites, String emptyMessage, String emptyIcon) {
