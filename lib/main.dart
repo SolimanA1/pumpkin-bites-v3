@@ -85,18 +85,74 @@ class _MyAppState extends State<MyApp> {
       title: 'Pumpkin Bites',
       navigatorKey: navigatorKey,
       theme: ThemeData(
+        // Primary color scheme - Pumpkin Orange
         primarySwatch: Colors.orange,
+        primaryColor: const Color(0xFFF56500),          // Etsy Orange
+        scaffoldBackgroundColor: const Color(0xFFFFF8F3), // Soft Cream
+        
+        // Visual density for modern look
         visualDensity: VisualDensity.adaptivePlatformDensity,
-        scaffoldBackgroundColor: Colors.white,
+        
+        // AppBar theme with Pumpkin styling
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
+          backgroundColor: Color(0xFFFFF8F3),           // Soft Cream
           elevation: 0,
-          iconTheme: IconThemeData(color: Colors.black),
+          iconTheme: IconThemeData(color: Color(0xFFF56500)), // Orange icons
           titleTextStyle: TextStyle(
-            color: Colors.black,
+            color: Color(0xFF2D2D2D),                   // Dark text
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
+        ),
+        
+        // Elevated button theme
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFF56500),   // Orange background
+            foregroundColor: Colors.white,              // White text
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        
+        // Text button theme
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFFF56500),   // Orange text
+          ),
+        ),
+        
+        // Input decoration theme
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(
+              color: Color(0xFFF56500),                 // Orange focus border
+              width: 2,
+            ),
+          ),
+        ),
+        
+        // Floating action button theme
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFFF56500),           // Orange background
+          foregroundColor: Colors.white,                // White icon
+        ),
+        
+        // Progress indicator theme
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Color(0xFFF56500),                     // Orange progress
+        ),
+        
+        // Tab bar theme
+        tabBarTheme: const TabBarTheme(
+          labelColor: Color(0xFFF56500),                // Orange selected
+          unselectedLabelColor: Color(0xFF8D6E63),      // Brown unselected
+          indicatorColor: Color(0xFFF56500),            // Orange indicator
         ),
       ),
       home: _buildHomeWithFloatingPlayer(),
@@ -227,8 +283,8 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: const Color(0xFFF56500),       // Orange when selected
+        unselectedItemColor: const Color(0xFF8D6E63),   // Warm Brown when unselected
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),

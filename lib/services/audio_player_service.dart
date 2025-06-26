@@ -108,19 +108,49 @@ class AudioPlayerService {
     return null;
   }
   
-  // Pause playback
+  // FIXED: Pause playback (keeps audio loaded, just pauses)
   Future<void> pause() async {
-    await _player.pause();
+    try {
+      print("AudioService: Pausing playback");
+      await _player.pause();
+      print("AudioService: Successfully paused");
+    } catch (e) {
+      print("AudioService: Error pausing: $e");
+    }
   }
   
-  // Resume playback
+  // FIXED: Resume playback (continues from current position)
   Future<void> resume() async {
-    await _player.play();
+    try {
+      print("AudioService: Resuming playback");
+      await _player.play();
+      print("AudioService: Successfully resumed");
+    } catch (e) {
+      print("AudioService: Error resuming: $e");
+    }
+  }
+  
+  // ADDED: Toggle play/pause for convenience
+  Future<void> togglePlayPause() async {
+    try {
+      if (isPlaying) {
+        await pause();
+      } else {
+        await resume();
+      }
+    } catch (e) {
+      print("AudioService: Error toggling play/pause: $e");
+    }
   }
   
   // Seek to position
   Future<void> seekTo(Duration position) async {
-    await _player.seek(position);
+    try {
+      print("AudioService: Seeking to $position");
+      await _player.seek(position);
+    } catch (e) {
+      print("AudioService: Error seeking: $e");
+    }
   }
   
   // Get current position
@@ -150,11 +180,30 @@ class AudioPlayerService {
   // Get duration stream
   Stream<Duration?> get durationStream => _player.durationStream;
   
-  // Is playing?
-  bool get isPlaying => _player.playing;
+  // FIXED: Is playing check (more reliable)
+  bool get isPlaying {
+    try {
+      return _player.playing;
+    } catch (e) {
+      print("AudioService: Error checking playing state: $e");
+      return false;
+    }
+  }
   
   // Get playback state
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
+  
+  // ADDED: Stop playback completely (for when you actually want to stop)
+  Future<void> stop() async {
+    try {
+      print("AudioService: Stopping playback completely");
+      await _player.stop();
+      _currentBite = null;
+      print("AudioService: Successfully stopped");
+    } catch (e) {
+      print("AudioService: Error stopping: $e");
+    }
+  }
   
   // Dispose
   Future<void> dispose() async {

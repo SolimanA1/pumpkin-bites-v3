@@ -50,12 +50,28 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
     });
   }
 
+  void _togglePlayPause() async {
+    try {
+      print("FloatingPlayer: Toggle play/pause clicked, current state: $_isPlaying");
+      
+      // Use the improved service method
+      await widget.audioService.togglePlayPause();
+      
+      print("FloatingPlayer: Toggle completed successfully");
+    } catch (e) {
+      print("FloatingPlayer: Error in toggle: $e");
+    }
+    
+    // Note: Don't manually update _isPlaying here, let the stream handle it
+    // This prevents state conflicts
+  }
+
   @override
   Widget build(BuildContext context) {
     return Positioned(
       left: 0,
       right: 0,
-      bottom: kBottomNavigationBarHeight + 24, // More clearance from bottom nav bar
+      bottom: kBottomNavigationBarHeight + 28, // One more notch up as requested
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8.0),
         decoration: BoxDecoration(
@@ -132,38 +148,42 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
                     ),
                     
                     // Rewind button
-                    IconButton(
-                      icon: const Icon(Icons.replay_10, size: 20),
-                      onPressed: () {
-                        final newPosition = _position - const Duration(seconds: 10);
-                        widget.audioService.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      color: Colors.grey[600],
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          final newPosition = _position - const Duration(seconds: 10);
+                          widget.audioService.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Icon(
+                            Icons.replay_10,
+                            size: 20,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
                     ),
                     
                     const SizedBox(width: 4),
                     
-                    // Play/Pause button
-                    IconButton(
-                      icon: Icon(
-                        _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                        size: 32,
-                        color: Colors.orange,
+                    // Play/Pause button - FIXED to prevent shutdown
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _togglePlayPause, // Use our fixed method
+                        borderRadius: BorderRadius.circular(18),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Icon(
+                            _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                            size: 32,
+                            color: const Color(0xFFF56500), // Using our Pumpkin orange
+                          ),
+                        ),
                       ),
-                      onPressed: () {
-                        if (_isPlaying) {
-                          widget.audioService.pause();
-                        } else {
-                          widget.audioService.resume();
-                        }
-                        setState(() {
-                          _isPlaying = !_isPlaying;
-                        });
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
                   ],
                 ),
