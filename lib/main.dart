@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/auth/register_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
@@ -11,6 +12,7 @@ import 'package:pumpkin_bites_new/screens/player_screen.dart';
 import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
 import 'package:pumpkin_bites_new/screens/share_history_screen.dart';
 import 'package:pumpkin_bites_new/screens/comment_detail_screen.dart';
+import 'package:pumpkin_bites_new/screens/onboarding_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
@@ -48,8 +50,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // FIXED: Changed logic - show floating bar when there's a loaded bite, not just when playing
-  bool _hasActiveBite = false;  // Changed from _isAudioPlaying
+  // Restore the floating player logic to the top level
+  bool _hasActiveBite = false;
   BiteModel? _currentBite;
 
   @override
@@ -59,33 +61,20 @@ class _MyAppState extends State<MyApp> {
   }
   
   void _setupAudioListener() {
-    // FIXED: Listen to player state changes but show floating bar for ANY loaded content
     _audioService.playerStateStream.listen((state) {
       if (mounted) {
         final currentBite = _audioService.currentBite;
         
-        print("=== MAIN APP AUDIO LISTENER ===");
-        print("Player state: ${state.playing}");
-        print("Processing state: ${state.processingState}");
-        print("Current bite: ${currentBite?.title}");
-        print("Should show floating bar: ${currentBite != null}");
-        
         setState(() {
-          // Show floating bar if there's ANY loaded bite (playing OR paused)
           _hasActiveBite = currentBite != null;
           _currentBite = currentBite;
         });
-        
-        print("Updated _hasActiveBite: $_hasActiveBite");
-        print("=== END MAIN APP AUDIO LISTENER ===");
       }
     });
   }
 
   void _navigateToPlayer() {
-    // Only navigate if there's a current bite
     if (_currentBite != null) {
-      // Navigate to player screen without restarting playback
       navigatorKey.currentState?.pushNamed(
         '/player',
         arguments: _currentBite,
@@ -177,6 +166,7 @@ class _MyAppState extends State<MyApp> {
         '/profile': (context) => _wrapWithFloatingPlayer(const ProfileScreen()),
         '/diagnostics': (context) => _wrapWithFloatingPlayer(const DiagnosticScreen()),
         '/share_history': (context) => _wrapWithFloatingPlayer(const ShareHistoryScreen()),
+        '/onboarding': (context) => const OnboardingScreen(),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {
@@ -187,7 +177,6 @@ class _MyAppState extends State<MyApp> {
           );
         } else if (settings.name == '/comment_detail') {
           final args = settings.arguments as BiteModel;
-          // Import the CommentDetailScreen at the top of main.dart
           return MaterialPageRoute(
             builder: (context) => CommentDetailScreen(bite: args),
           );
@@ -202,7 +191,7 @@ class _MyAppState extends State<MyApp> {
       children: [
         const AuthWrapper(),
         
-        // FIXED: Show floating player if there's ANY active bite (playing OR paused)
+        // Original working floating player logic
         if (_hasActiveBite && _currentBite != null)
           FloatingPlayerBar(
             bite: _currentBite!,
@@ -218,7 +207,7 @@ class _MyAppState extends State<MyApp> {
       children: [
         child,
         
-        // FIXED: Show floating player if there's ANY active bite (playing OR paused)
+        // Show floating player on individual routes too
         if (_hasActiveBite && _currentBite != null)
           FloatingPlayerBar(
             bite: _currentBite!,
@@ -243,13 +232,55 @@ class AuthWrapper extends StatelessWidget {
           if (user == null) {
             return const LoginScreen();
           }
-          return const MainScreen();
+          return const OnboardingWrapper();
         }
         return const Scaffold(
           body: Center(
-            child: CircularProgressIndicator(),
+            child: CircularProgressIndicator(
+              color: Color(0xFFF56500),
+            ),
           ),
         );
+      },
+    );
+  }
+}
+
+class OnboardingWrapper extends StatelessWidget {
+  const OnboardingWrapper({Key? key}) : super(key: key);
+
+  Future<bool> _checkOnboardingStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('hasCompletedOnboarding') ?? false;
+    } catch (e) {
+      print('Error checking onboarding status: $e');
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _checkOnboardingStatus(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFFF56500),
+              ),
+            ),
+          );
+        }
+        
+        final hasCompletedOnboarding = snapshot.data ?? false;
+        
+        if (hasCompletedOnboarding) {
+          return const MainScreen();
+        } else {
+          return const OnboardingScreen();
+        }
       },
     );
   }
@@ -270,7 +301,8 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
   }
-
+  
+  // Remove the floating player logic from MainScreen since it's back at top level
   final List<Widget> _screens = [
     const HomeScreen(),
     const LibraryScreen(),
