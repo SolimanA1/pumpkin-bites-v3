@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
 
@@ -16,13 +14,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final ContentService _contentService = ContentService();
   BiteModel? _todaysBite;
   List<BiteModel> _catchUpBites = [];
-  List<BiteModel> _recentUnlockedBites = [];
   bool _isLoading = true;
   bool _isRefreshing = false;
   String _errorMessage = '';
   Timer? _refreshTimer;
   Timer? _countdownTimer;
-  bool _isPremium = true; // Always set to true to allow access to all content
   
   // Sequential release system variables
   bool _isTodaysBiteUnlocked = false;
@@ -70,6 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshContent() async {
     if (_isRefreshing) return;
 
+    if (_isRefreshing) return;
+
     setState(() {
       _isRefreshing = true;
     });
@@ -77,11 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final todaysBite = await _contentService.getTodaysBite();
       final catchUpBites = await _contentService.getCatchUpBites();
-      final recentBites = await _contentService.getUnlockedBites();
 
       // Simulate sequential release logic
       final now = DateTime.now();
-      final unlockHour = 9; // 9 AM unlock time (you can make this configurable)
+      final unlockHour = 9; // 9 AM unlock time
       final todayUnlockTime = DateTime(now.year, now.month, now.day, unlockHour);
       
       bool isUnlocked = now.isAfter(todayUnlockTime);
@@ -94,13 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _todaysBite = todaysBite;
         _catchUpBites = catchUpBites;
-        _recentUnlockedBites = recentBites.take(3).toList(); // Show 3 recent bites
         _isTodaysBiteUnlocked = isUnlocked;
         _nextUnlockTime = nextUnlock;
         _isRefreshing = false;
       });
     } catch (e) {
-      print('Error refreshing content: $e');
       setState(() {
         _isRefreshing = false;
       });
@@ -116,7 +111,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final todaysBite = await _contentService.getTodaysBite();
       final catchUpBites = await _contentService.getCatchUpBites();
-      final recentBites = await _contentService.getUnlockedBites();
 
       // Initialize sequential release logic
       final now = DateTime.now();
@@ -133,14 +127,13 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _todaysBite = todaysBite;
         _catchUpBites = catchUpBites;
-        _recentUnlockedBites = recentBites.take(3).toList();
         _isTodaysBiteUnlocked = isUnlocked;
         _nextUnlockTime = nextUnlock;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load content: $e';
+        _errorMessage = 'Failed to load content';
         _isLoading = false;
       });
     }
@@ -155,13 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pushNamed('/library');
   }
 
-  void _navigateToDinnerTable() {
-    Navigator.of(context).pushNamed('/dinner_table');
-  }
-
-  void _navigateToProfile() {
-    Navigator.of(context).pushNamed('/profile');
-  }
 
   Widget _buildTodaysBiteSection() {
     if (_todaysBite == null) {
@@ -496,7 +482,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Vertical list of catch-up bites (much better UX!)
         ListView.builder(
           shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           itemCount: _catchUpBites.length.clamp(0, 3), // Show max 3
           itemBuilder: (context, index) {
@@ -673,6 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : RefreshIndicator(
                   onRefresh: _refreshContent,
                   child: ListView(
+                    physics: const BouncingScrollPhysics(),
                     children: [
                       _buildTodaysBiteSection(),
                       _buildFreshBitesWaitingSection(),

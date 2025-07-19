@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'models/bite_model.dart';
 import 'services/audio_player_service.dart';
 
@@ -31,10 +30,6 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
     _position = widget.audioService.position;
     _duration = widget.audioService.duration ?? Duration(seconds: widget.bite.duration);
     
-    print("=== FLOATING PLAYER INIT ===");
-    print("Initial _isPlaying: $_isPlaying");
-    print("Initial position: $_position");
-    print("Initial duration: $_duration");
     
     // Subscribe to position updates
     widget.audioService.positionStream.listen((position) {
@@ -45,13 +40,8 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
       }
     });
     
-    // Subscribe to player state changes - THIS IS CRITICAL
+    // Subscribe to player state changes
     widget.audioService.playerStateStream.listen((state) {
-      print("=== FLOATING PLAYER STATE CHANGE ===");
-      print("New playing state: ${state.playing}");
-      print("Processing state: ${state.processingState}");
-      print("Current bite: ${widget.audioService.currentBite?.title}");
-      
       if (mounted) {
         setState(() {
           _isPlaying = state.playing;
@@ -61,43 +51,26 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
   }
 
   void _togglePlayPause() async {
-    print("=== FLOATING PLAYER DEBUG ===");
-    print("Button pressed! Current _isPlaying: $_isPlaying");
-    print("AudioService.isPlaying: ${widget.audioService.isPlaying}");
-    print("AudioService.position: ${widget.audioService.position}");
-    print("Current bite: ${widget.audioService.currentBite?.title}");
-    
     try {
       if (_isPlaying) {
-        print("Attempting to PAUSE...");
         await widget.audioService.pause();
-        print("Pause command sent successfully");
       } else {
-        print("Attempting to RESUME...");
         await widget.audioService.resume();
-        print("Resume command sent successfully");
       }
-      
-      // Check state after operation
-      print("After operation - AudioService.isPlaying: ${widget.audioService.isPlaying}");
-      print("After operation - Current bite: ${widget.audioService.currentBite?.title}");
-      
     } catch (e) {
-      print("ERROR in _togglePlayPause: $e");
+      // Handle error silently or show user-friendly message
     }
-    
-    print("=== END FLOATING PLAYER DEBUG ===");
   }
 
   @override
   Widget build(BuildContext context) {
-    // Debug current state in build
-    print("FloatingPlayer BUILD - _isPlaying: $_isPlaying, currentBite: ${widget.audioService.currentBite?.title}");
+    
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     
     return Positioned(
       left: 0,
       right: 0,
-      bottom: kBottomNavigationBarHeight + 28, // Perfect clearance
+      bottom: kBottomNavigationBarHeight + bottomPadding + 8, // iOS safe area support
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8.0),
         decoration: BoxDecoration(
@@ -105,7 +78,7 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
           borderRadius: BorderRadius.circular(8.0),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8.0,
               offset: const Offset(0, -2),
             ),
@@ -114,10 +87,7 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () {
-              print("FloatingPlayer: Main area tapped, navigating to player");
-              widget.onTap();
-            },
+            onTap: widget.onTap,
             borderRadius: BorderRadius.circular(8.0),
             child: SizedBox(
               height: 64.0,
@@ -181,7 +151,6 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          print("FloatingPlayer: Rewind button tapped");
                           final newPosition = _position - const Duration(seconds: 10);
                           widget.audioService.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
                         },
@@ -199,14 +168,11 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
                     
                     const SizedBox(width: 4),
                     
-                    // Play/Pause button with detailed logging
+                    // Play/Pause button
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () {
-                          print("FloatingPlayer: Play/Pause button TAPPED!");
-                          _togglePlayPause();
-                        },
+                        onTap: _togglePlayPause,
                         borderRadius: BorderRadius.circular(18),
                         child: Padding(
                           padding: const EdgeInsets.all(4.0),

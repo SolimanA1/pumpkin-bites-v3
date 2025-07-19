@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -549,259 +550,260 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
   
   Widget _buildPlayerView() {
-    return SingleChildScrollView(
+    // Make both iOS and Android compact and non-scrollable
+    return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title and description
-            Text(
-              widget.bite.title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.bite.description,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // Image if available - KEPT original size (looks good!)
-            if (widget.bite.thumbnailUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9, // Back to original ratio
-                  child: Image.network(
-                    widget.bite.thumbnailUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: Icon(Icons.image_not_supported, size: 50),
-                        ),
-                      );
-                    },
+          children: _buildPlayerContent(),
+        ),
+      ),
+    );
+  }
+  
+  List<Widget> _buildPlayerContent() {
+    return [
+      // Title and description - compact
+      Text(
+        widget.bite.title,
+        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      const SizedBox(height: 4),
+      Text(
+        widget.bite.description,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Colors.grey.shade700,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      const SizedBox(height: 12),
+      
+      // Image if available - compact sizing
+      if (widget.bite.thumbnailUrl.isNotEmpty)
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: AspectRatio(
+            aspectRatio: 16 / 9, // Compact 16:9 for both platforms
+            child: Image.network(
+              widget.bite.thumbnailUrl,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Icon(Icons.image_not_supported, size: 40),
                   ),
-                ),
-              ),
-            
-            const SizedBox(height: 24), // Reduced spacing
-            
-            // Player controls
-            Slider(
-              value: _progress,
-              activeColor: const Color(0xFFF56500),
-              onChanged: (value) {
-                if (_duration != null) {
-                  final position = Duration(
-                    milliseconds: (value * _duration!.inMilliseconds).round(),
-                  );
-                  _audioService.seekTo(position);
-                  
-                  // Update UI immediately
-                  setState(() {
-                    _progress = value;
-                    _position = position;
-                  });
-                }
+                );
               },
             ),
+          ),
+        ),
+      
+      const SizedBox(height: 16),
             
-            // Time display
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+      // Player controls - compact
+      Slider(
+        value: _progress,
+        activeColor: const Color(0xFFF56500),
+        onChanged: (value) {
+          if (_duration != null) {
+            final position = Duration(
+              milliseconds: (value * _duration!.inMilliseconds).round(),
+            );
+            _audioService.seekTo(position);
+            
+            // Update UI immediately
+            setState(() {
+              _progress = value;
+              _position = position;
+            });
+          }
+        },
+      ),
+      
+      // Time display - compact
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(_formatDuration(_position), style: const TextStyle(fontSize: 12)),
+            Text(_formatDuration(_duration ?? Duration(seconds: widget.bite.duration)), style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Play controls - compact
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: _skipBackward,
+            icon: const Icon(Icons.replay_10),
+            iconSize: 28,
+            color: const Color(0xFFF56500),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: _isBuffering ? null : _togglePlayPause,
+            icon: Icon(
+              _isBuffering
+                  ? Icons.hourglass_empty
+                  : _isPlaying
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_filled,
+            ),
+            iconSize: 48,
+            color: const Color(0xFFF56500),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: _skipForward,
+            icon: const Icon(Icons.forward_30),
+            iconSize: 28,
+            color: const Color(0xFFF56500),
+          ),
+        ],
+      ),
+            
+      const SizedBox(height: 16),
+      
+      // Reaction buttons section - compact and centered
+      const Center(
+        child: Text(
+          'How did this bite make you feel?',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      _isSavingReaction
+          ? const Center(child: CircularProgressIndicator(
+              color: Color(0xFFF56500),
+            ))
+          : Center(
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(_formatDuration(_position)),
-                  Text(_formatDuration(_duration ?? Duration(seconds: widget.bite.duration))),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Play controls
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: _skipBackward,
-                  icon: const Icon(Icons.replay_10),
-                  iconSize: 36,
-                  color: const Color(0xFFF56500),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  onPressed: _isBuffering ? null : _togglePlayPause,
-                  icon: Icon(
-                    _isBuffering
-                        ? Icons.hourglass_empty
-                        : _isPlaying
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_filled,
-                  ),
-                  iconSize: 64,
-                  color: const Color(0xFFF56500),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  onPressed: _skipForward,
-                  icon: const Icon(Icons.forward_30),
-                  iconSize: 36,
-                  color: const Color(0xFFF56500),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 24), // Reduced spacing
-            
-            // COMPACT: Reaction buttons in ONE ROW - no scrolling needed
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'How did this bite make you feel?',
-                style: TextStyle(
-                  fontSize: 16, // Slightly smaller
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 12), // Reduced spacing
-            
-            _isSavingReaction
-                ? const Center(child: CircularProgressIndicator(
-                    color: Color(0xFFF56500),
-                  ))
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: _reactionOptions.entries.map((entry) {
-                        final emoji = entry.key;
-                        final description = entry.value;
-                        final isSelected = _selectedReaction == emoji;
-                        final index = _reactionOptions.keys.toList().indexOf(emoji);
-                        
-                        return Container(
-                          margin: EdgeInsets.only(right: index < _reactionOptions.length - 1 ? 12 : 0),
-                          child: InkWell(
-                            onTap: () => _saveReaction(emoji),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width: 80, // Fixed width for consistency
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: isSelected
-                                    ? const Color(0xFFF56500).withOpacity(0.1)
-                                    : Colors.grey.shade100,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xFFF56500)
-                                      : Colors.grey.shade300,
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    emoji,
-                                    style: const TextStyle(fontSize: 24), // Slightly smaller
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    description,
-                                    style: TextStyle(
-                                      fontSize: 10, // Smaller text
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isSelected 
-                                          ? const Color(0xFFF56500) 
-                                          : Colors.grey.shade700,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: _reactionOptions.entries.map((entry) {
+                  final emoji = entry.key;
+                  final description = entry.value;
+                  final isSelected = _selectedReaction == emoji;
+                  
+                  return Container(
+                    width: 70, // Fixed equal width
+                    height: 70, // Fixed equal height
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    child: InkWell(
+                      onTap: () => _saveReaction(emoji),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: isSelected
+                              ? const Color(0xFFF56500).withValues(alpha: 0.1)
+                              : Colors.grey.shade100,
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFFF56500)
+                                : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
                           ),
-                        );
-                      }).toList(),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              description,
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected 
+                                    ? const Color(0xFFF56500) 
+                                    : Colors.grey.shade700,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  );
+                }).toList(),
+              ),
+            ),
+      
+      const SizedBox(height: 16),
             
-            const SizedBox(height: 24), // Reduced spacing
-            
-            // COMPACT: Both buttons in same section, no scrolling
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  // FIXED: Join THIS bite's discussion
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _navigateToCommentDetail,
-                      icon: const Icon(
-                        Icons.people,
-                        color: Color(0xFFF56500),
-                      ),
-                      label: const Text(
-                        'Join the discussion',
-                        style: TextStyle(
-                          color: Color(0xFFF56500),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14), // Slightly smaller
-                        side: const BorderSide(
-                          color: Color(0xFFF56500),
-                          width: 2,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
+      // Action buttons section - compact side by side for all platforms
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _navigateToCommentDetail,
+                icon: const Icon(
+                  Icons.people,
+                  color: Color(0xFFF56500),
+                  size: 18,
+                ),
+                label: const Text(
+                  'Discuss',
+                  style: TextStyle(
+                    color: Color(0xFFF56500),
+                    fontWeight: FontWeight.bold,
                   ),
-                  
-                  const SizedBox(height: 12), // Reduced spacing
-                  
-                  // Share button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSharing ? null : _shareBite,
-                      icon: const Icon(Icons.share),
-                      label: const Text('Share this bite with friends'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF56500),
-                        padding: const EdgeInsets.symmetric(vertical: 14), // Slightly smaller
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  side: const BorderSide(
+                    color: Color(0xFFF56500),
+                    width: 2,
                   ),
-                ],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isSharing ? null : _shareBite,
+                icon: const Icon(Icons.share, size: 18),
+                label: const Text('Share'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF56500),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
-    );
+    ];
   }
 }

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
 import 'comment_detail_screen.dart';
@@ -296,6 +294,7 @@ class _UnifiedDinnerTableScreenState extends State<UnifiedDinnerTableScreen> {
                   : RefreshIndicator(
                       onRefresh: _loadContent,
                       child: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         itemCount: _availableBites.length,
                         itemBuilder: (context, index) {

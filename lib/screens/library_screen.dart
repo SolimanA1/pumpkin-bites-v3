@@ -396,6 +396,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       onRefresh: _loadContent,
       color: const Color(0xFFF56500),
       child: ListView.builder(
+        physics: const BouncingScrollPhysics(),
         itemCount: bites.length,
         itemBuilder: (context, index) {
           return _buildBiteCard(bites[index]);

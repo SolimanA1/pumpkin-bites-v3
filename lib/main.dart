@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
-import 'package:pumpkin_bites_new/screens/auth/register_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
 import 'package:pumpkin_bites_new/screens/library_screen.dart';
 import 'package:pumpkin_bites_new/screens/unified_dinner_table_screen.dart';
@@ -331,30 +330,32 @@ class _MainScreenState extends State<MainScreen> {
         physics: const NeverScrollableScrollPhysics(),
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFFF56500),       // Orange when selected
-        unselectedItemColor: const Color(0xFF8D6E63),   // Warm Brown when unselected
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book),
-            label: 'Library',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Dinner Table',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+      bottomNavigationBar: SafeArea(
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _currentIndex,
+          onTap: _onItemTapped,
+          selectedItemColor: const Color(0xFFF56500),       // Orange when selected
+          unselectedItemColor: const Color(0xFF8D6E63),   // Warm Brown when unselected
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.book),
+              label: 'Library',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people),
+              label: 'Dinner Table',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
-import '../models/bite_model.dart';
 import 'test_bite_creator.dart';
 
 class DiagnosticScreen extends StatefulWidget {
