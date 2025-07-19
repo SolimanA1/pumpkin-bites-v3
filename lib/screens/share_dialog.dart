@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/bite_model.dart';
 import '../services/audio_player_service.dart';
+import '../services/share_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -28,6 +29,7 @@ class _ShareDialogState extends State<ShareDialog> {
   final TextEditingController _commentController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ShareService _shareService = ShareService();
   
   // Default snippet duration is 30 seconds
   double _snippetDuration = 30.0;
@@ -39,12 +41,23 @@ class _ShareDialogState extends State<ShareDialog> {
   
   bool _isSharing = false;
   bool _isPreviewing = false;
+  bool _isInstagramAvailable = false;
   Timer? _previewTimer;
   
   @override
   void initState() {
     super.initState();
     _initializePositionAndDuration();
+    _checkInstagramAvailability();
+  }
+  
+  Future<void> _checkInstagramAvailability() async {
+    final isAvailable = await _shareService.isInstagramAvailable();
+    if (mounted) {
+      setState(() {
+        _isInstagramAvailable = isAvailable;
+      });
+    }
   }
   
   void _initializePositionAndDuration() {
@@ -181,6 +194,40 @@ class _ShareDialogState extends State<ShareDialog> {
     }
   }
   
+  Future<void> _shareToInstagramStories() async {
+    if (_isSharing) return;
+    
+    setState(() {
+      _isSharing = true;
+    });
+    
+    try {
+      await _shareService.shareToInstagramStories(
+        context,
+        widget.bite,
+        personalComment: _commentController.text.trim(),
+        snippetDuration: _snippetDuration.round(),
+      );
+      
+      if (mounted) {
+        Navigator.of(context).pop(true); // Return success
+      }
+    } catch (e) {
+      print('Error sharing to Instagram Stories: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share to Instagram Stories: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+        });
+      }
+    }
+  }
+  
   // Generate a deep link to the specific bite with snippet information
   Future<String> _generateDeepLink(String biteId, int startSeconds, int durationSeconds) async {
     // For now, we'll use a simple URL format
@@ -251,11 +298,16 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
             Row(
@@ -380,51 +432,89 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: _commentController,
-              decoration: InputDecoration(
-                hintText: 'What did you think about this bite?',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              maxLines: 3,
-              maxLength: 280, // Twitter-like character limit
-            ),
-            
-            // Share button
-            const SizedBox(height: 16),
             SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSharing ? null : _shareSnippet,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
+              height: 80, // Fixed height for iOS compatibility
+              child: TextField(
+                controller: _commentController,
+                decoration: InputDecoration(
+                  hintText: 'What did you think about this bite?',
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: _isSharing
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'SHARE SNIPPET',
+                maxLines: 3,
+                maxLength: 280, // Twitter-like character limit
+                expands: false,
+              ),
+            ),
+            
+            // Share buttons
+            const SizedBox(height: 16),
+            Column(
+              children: [
+                // Instagram Stories button (if available)
+                if (_isInstagramAvailable) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isSharing ? null : _shareToInstagramStories,
+                      icon: const Icon(Icons.camera_alt, color: Colors.white),
+                      label: const Text(
+                        'SHARE TO INSTAGRAM STORIES',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
-              ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE4405F), // Instagram pink
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                
+                // Regular share button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSharing ? null : _shareSnippet,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isSharing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'SHARE SNIPPET',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
             ),
           ],
+            ),
+          ),
         ),
       ),
     );

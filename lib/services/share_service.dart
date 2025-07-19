@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:typed_data';
 import '../models/bite_model.dart';
 import '../services/audio_player_service.dart';
 import '../screens/share_dialog.dart';
+import '../widgets/instagram_story_generator.dart';
 
 class ShareService {
   // Singleton pattern
@@ -114,6 +120,142 @@ Check it out here: $deepLink
     }
   }
   
+  // Share to Instagram Stories
+  Future<void> shareToInstagramStories(
+    BuildContext context,
+    BiteModel bite, {
+    required String personalComment,
+    required int snippetDuration,
+  }) async {
+    try {
+      // Generate Instagram Story image
+      final storyImage = await _generateInstagramStoryImage(
+        bite, 
+        personalComment, 
+        snippetDuration
+      );
+      
+      if (storyImage == null) {
+        throw Exception('Failed to generate story image');
+      }
+      
+      // Save image to temporary file
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/pumpkin_bites_story.png');
+      await file.writeAsBytes(storyImage);
+      
+      // Save image to app documents for sharing
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Check out this ${snippetDuration}s bite from "${bite.title}" on Pumpkin Bites! ${personalComment.isNotEmpty ? '\n\n$personalComment' : ''}',
+        subject: 'Pumpkin Bites - ${bite.title}',
+      );
+      
+      // Track the share
+      await _trackInstagramShare(bite.id, personalComment, snippetDuration);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Story image created! Select Instagram from the share options.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error sharing to Instagram Stories: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share to Instagram Stories: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  // Generate Instagram Story image
+  Future<Uint8List?> _generateInstagramStoryImage(
+    BiteModel bite,
+    String personalComment,
+    int snippetDuration,
+  ) async {
+    try {
+      final screenshotController = ScreenshotController();
+      
+      // Create the story widget
+      final storyWidget = MaterialApp(
+        home: Scaffold(
+          body: InstagramStoryGenerator(
+            bite: bite,
+            personalComment: personalComment,
+            snippetDuration: snippetDuration,
+            screenshotController: screenshotController,
+          ),
+        ),
+      );
+      
+      // Capture the image
+      final image = await screenshotController.captureFromWidget(
+        storyWidget,
+        pixelRatio: 3.0, // High resolution for better quality
+      );
+      
+      return image;
+    } catch (e) {
+      print('Error generating Instagram story image: $e');
+      return null;
+    }
+  }
+  
+  // Track Instagram share
+  Future<void> _trackInstagramShare(
+    String biteId,
+    String personalComment,
+    int snippetDuration,
+  ) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      
+      // Update the user's share count
+      await _firestore.collection('users').doc(user.uid).update({
+        'shares': FieldValue.increment(1),
+        'instagramShares': FieldValue.increment(1),
+      });
+      
+      // Add to share history
+      await _firestore.collection('users').doc(user.uid).collection('shares').add({
+        'biteId': biteId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'platform': 'instagram_stories',
+        'snippetDuration': snippetDuration,
+        'message': personalComment,
+      });
+      
+      // Update the bite's share count
+      await _firestore.collection('bites').doc(biteId).update({
+        'shareCount': FieldValue.increment(1),
+        'instagramShares': FieldValue.increment(1),
+      });
+    } catch (e) {
+      print('Error tracking Instagram share: $e');
+    }
+  }
+  
+  // Check if Instagram is available
+  Future<bool> isInstagramAvailable() async {
+    try {
+      // Check if Instagram URL scheme can be launched
+      final uri = Uri.parse('instagram://story-camera');
+      return await canLaunchUrl(uri);
+    } catch (e) {
+      print('Error checking Instagram availability: $e');
+      return true; // Default to true to show the option
+    }
+  }
+  
   // Get user's share history
   Future<List<Map<String, dynamic>>> getShareHistory() async {
     try {
@@ -143,6 +285,7 @@ Check it out here: $deepLink
               'biteId': biteId,
               'biteTitle': biteData['title'] ?? 'Unknown Bite',
               'timestamp': data['timestamp'],
+              'platform': data['platform'] ?? 'default',
               'snippetStart': data['snippetStart'],
               'snippetDuration': data['snippetDuration'],
               'message': data['message'],

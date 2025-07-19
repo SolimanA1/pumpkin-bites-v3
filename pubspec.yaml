@@ -39,6 +39,10 @@ dependencies:
   url_launcher: ^6.1.11
   uuid: ^3.0.7
   
+  # Image Generation
+  screenshot: ^3.0.0
+  image_picker: ^1.0.4
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter

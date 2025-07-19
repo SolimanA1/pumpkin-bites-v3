@@ -482,7 +482,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Vertical list of catch-up bites (much better UX!)
         ListView.builder(
           shrinkWrap: true,
-          physics: const BouncingScrollPhysics(),
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           itemCount: _catchUpBites.length.clamp(0, 3), // Show max 3
           itemBuilder: (context, index) {
@@ -659,7 +659,9 @@ class _HomeScreenState extends State<HomeScreen> {
               : RefreshIndicator(
                   onRefresh: _refreshContent,
                   child: ListView(
-                    physics: const BouncingScrollPhysics(),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
                     children: [
                       _buildTodaysBiteSection(),
                       _buildFreshBitesWaitingSection(),

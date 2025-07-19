@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
@@ -14,8 +17,11 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final ImagePicker _imagePicker = ImagePicker();
   UserModel? _user;
   bool _isLoading = true;
+  bool _isUploadingPhoto = false;
   
   // User stats
   int _totalListened = 0;
@@ -251,25 +257,184 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Change Profile Photo'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Photo upload will be available in the next update!'),
-            SizedBox(height: 16),
-            Text(
-              'For now, you can:\n• Use a custom avatar\n• Update your name and preferences',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            const Text('Choose how you want to update your profile photo:'),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildPhotoOption(
+                  icon: Icons.camera_alt,
+                  label: 'Camera',
+                  onTap: () => _pickImage(ImageSource.camera),
+                ),
+                _buildPhotoOption(
+                  icon: Icons.photo_library,
+                  label: 'Gallery',
+                  onTap: () => _pickImage(ImageSource.gallery),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildPhotoOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFF56500)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: const Color(0xFFF56500),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFF56500),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      Navigator.pop(context); // Close the dialog
+      
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        await _uploadProfilePhoto(File(pickedFile.path));
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error selecting image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadProfilePhoto(File imageFile) async {
+    if (_user == null) return;
+
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      // Show uploading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: Color(0xFFF56500),
+              ),
+              const SizedBox(height: 16),
+              const Text('Uploading profile photo...'),
+            ],
+          ),
+        ),
+      );
+
+      // Create a unique filename
+      final String fileName = 'profile_photos/${_user!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // Create reference to Firebase Storage
+      final Reference storageRef = _storage.ref().child(fileName);
+      
+      // Upload file
+      final TaskSnapshot uploadTask = await storageRef.putFile(imageFile);
+      
+      // Get download URL
+      final String downloadURL = await uploadTask.ref.getDownloadURL();
+      
+      // Update user profile in Firestore
+      await _firestore.collection('users').doc(_user!.uid).update({
+        'photoURL': downloadURL,
+      });
+
+      // Update Firebase Auth user profile
+      await FirebaseAuth.instance.currentUser?.updatePhotoURL(downloadURL);
+      
+      // Close uploading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      
+      // Reload user data to reflect changes
+      await _loadUserData();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo updated successfully!'),
+            backgroundColor: Color(0xFFF56500),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error uploading profile photo: $e');
+      
+      // Close uploading dialog if it's open
+      if (mounted) {
+        Navigator.pop(context);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading photo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
   }
 
   void _showUnlockTimeSettings() {
@@ -624,6 +789,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               )
                             : null,
                       ),
+                      
+                      // Show loading overlay while uploading
+                      if (_isUploadingPhoto)
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                        ),
+                      
                       Positioned(
                         bottom: 0,
                         right: 0,
@@ -631,12 +814,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: const Color(0xFFF56500),
                           shape: const CircleBorder(),
                           child: InkWell(
-                            onTap: _showEditProfileDialog,
+                            onTap: _isUploadingPhoto ? null : _showEditProfileDialog,
                             customBorder: const CircleBorder(),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8.0),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
                               child: Icon(
-                                Icons.edit,
+                                _isUploadingPhoto ? Icons.hourglass_empty : Icons.edit,
                                 color: Colors.white,
                                 size: 16,
                               ),

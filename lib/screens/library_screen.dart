@@ -11,7 +11,7 @@ class LibraryScreen extends StatefulWidget {
   _LibraryScreenState createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
+class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final ContentService _contentService = ContentService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,13 +22,47 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   bool _isLoading = true;
   String _errorMessage = '';
   List<String> _favoriteIds = [];
+  
+  // Performance optimization: cache timestamp to avoid unnecessary refreshes
+  DateTime? _lastFavoritesRefresh;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChange);
+    WidgetsBinding.instance.addObserver(this);
     _loadContent();
     _loadFavorites();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Removed automatic favorites refresh on app resume to improve performance
+    // Favorites will be refreshed only when explicitly needed
+  }
+
+  void _onTabChange() {
+    // Performance optimization: only refresh favorites if needed
+    if (_tabController.index == 1) {
+      // Only refresh if it's been more than 30 seconds since last refresh
+      // or if favorites are empty but should have content
+      final now = DateTime.now();
+      final shouldRefresh = _lastFavoritesRefresh == null ||
+          now.difference(_lastFavoritesRefresh!).inSeconds > 30 ||
+          (_favoriteBites.isEmpty && _favoriteIds.isNotEmpty);
+      
+      if (shouldRefresh) {
+        _refreshFavorites();
+      }
+    }
+  }
+
+  Future<void> _refreshFavorites() async {
+    _lastFavoritesRefresh = DateTime.now();
+    await _loadFavorites();
+    await _loadFavoriteBites();
   }
 
   Future<void> _loadContent() async {
@@ -38,7 +72,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         _errorMessage = '';
       });
 
-      print('Loading library content...');
+      // Removed debug print for performance
       
       // Get all bites to ensure we have content
       final allBitesQuery = await _firestore.collection('bites').get();
@@ -55,7 +89,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       
       // Parse all bites
       final allBites = allBitesQuery.docs.map((doc) => BiteModel.fromFirestore(doc)).toList();
-      print('Found ${allBites.length} total bites');
+      // Removed debug print for performance
       
       // FIXED: Sort by dayNumber, newest/highest first (like Instagram/social media)
       // Higher day numbers (Day 5, Day 4, Day 3...) appear at the top
@@ -70,7 +104,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       await _loadFavoriteBites();
       
     } catch (e) {
-      print('Error loading library content: $e');
+      // Removed debug print for performance
       setState(() {
         _errorMessage = 'Failed to load content: $e';
         _isLoading = false;
@@ -94,7 +128,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         _favoriteIds = favorites.map((item) => item.toString()).toList();
       });
     } catch (e) {
-      print('Error loading favorites: $e');
+      // Removed debug print for performance
     }
   }
   
@@ -117,9 +151,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         _favoriteBites = favoriteBites;
       });
       
-      print('Loaded ${_favoriteBites.length} favorite bites');
+      // Removed debug print for performance
     } catch (e) {
-      print('Error loading favorite bites: $e');
+      // Removed debug print for performance
     }
   }
 
@@ -146,11 +180,14 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         });
       }
       
-      // Reload favorite bites to update the favorites tab
-      await _loadFavoriteBites();
+      // Reload favorite bites to update the favorites tab (only if on favorites tab)
+      if (_tabController.index == 1) {
+        await _loadFavoriteBites();
+      }
+      _lastFavoritesRefresh = DateTime.now(); // Update cache timestamp
       
     } catch (e) {
-      print('Error toggling favorite: $e');
+      // Removed debug print for performance
     }
   }
 
@@ -356,7 +393,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     }
   }
 
-  Widget _buildBitesList(List<BiteModel> bites, String emptyMessage, String emptyIcon) {
+  Widget _buildBitesList(List<BiteModel> bites, String emptyMessage, String emptyIcon, {bool isFavoritesTab = false}) {
     if (bites.isEmpty) {
       return Center(
         child: Column(
@@ -379,7 +416,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _loadContent,
+              onPressed: isFavoritesTab ? _refreshFavorites : _loadContent,
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
@@ -393,7 +430,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     }
 
     return RefreshIndicator(
-      onRefresh: _loadContent,
+      onRefresh: isFavoritesTab ? _refreshFavorites : _loadContent,
       color: const Color(0xFFF56500),
       child: ListView.builder(
         physics: const BouncingScrollPhysics(),
@@ -478,6 +515,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                       _favoriteBites,
                       'No favorites yet!\nTap the ❤️ icon on any bite to add it to your favorites.',
                       'favorite',
+                      isFavoritesTab: true,
                     ),
                   ],
                 ),
@@ -486,7 +524,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChange);
     _tabController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }
