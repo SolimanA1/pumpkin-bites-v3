@@ -12,9 +12,11 @@ import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
 import 'package:pumpkin_bites_new/screens/share_history_screen.dart';
 import 'package:pumpkin_bites_new/screens/comment_detail_screen.dart';
 import 'package:pumpkin_bites_new/screens/onboarding_screen.dart';
+import 'package:pumpkin_bites_new/screens/subscription_screen.dart';
 import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
+import 'package:pumpkin_bites_new/services/subscription_service.dart';
 import 'package:pumpkin_bites_new/models/bite_model.dart';
 import 'package:pumpkin_bites_new/floating_player_bar.dart';
 import 'firebase_options.dart';
@@ -34,6 +36,7 @@ void main() async {
   // Initialize services
   AuthService();  // Initialize the singleton
   ShareService(); // Initialize the sharing singleton
+  await SubscriptionService().initialize(); // Initialize subscription service
   
   // Initialize audio player
   await _audioService.init();
@@ -166,6 +169,7 @@ class _MyAppState extends State<MyApp> {
         '/diagnostics': (context) => _wrapWithFloatingPlayer(const DiagnosticScreen()),
         '/share_history': (context) => _wrapWithFloatingPlayer(const ShareHistoryScreen()),
         '/onboarding': (context) => const OnboardingScreen(),
+        '/subscription': (context) => const SubscriptionScreen(),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {
@@ -248,20 +252,32 @@ class AuthWrapper extends StatelessWidget {
 class OnboardingWrapper extends StatelessWidget {
   const OnboardingWrapper({Key? key}) : super(key: key);
 
-  Future<bool> _checkOnboardingStatus() async {
+  Future<Map<String, bool>> _checkStatus() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool('hasCompletedOnboarding') ?? false;
+      final hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+      
+      // Start free trial if onboarding is completed and trial hasn't started yet
+      if (hasCompletedOnboarding) {
+        final subscriptionService = SubscriptionService();
+        if (subscriptionService.trialEndDate == null && !subscriptionService.isSubscriptionActive) {
+          await subscriptionService.startFreeTrial();
+        }
+      }
+      
+      return {
+        'hasCompletedOnboarding': hasCompletedOnboarding,
+      };
     } catch (e) {
-      print('Error checking onboarding status: $e');
-      return false;
+      print('Error checking status: $e');
+      return {'hasCompletedOnboarding': false};
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _checkOnboardingStatus(),
+    return FutureBuilder<Map<String, bool>>(
+      future: _checkStatus(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -273,13 +289,31 @@ class OnboardingWrapper extends StatelessWidget {
           );
         }
         
-        final hasCompletedOnboarding = snapshot.data ?? false;
+        final status = snapshot.data ?? {'hasCompletedOnboarding': false};
+        final hasCompletedOnboarding = status['hasCompletedOnboarding'] ?? false;
         
         if (hasCompletedOnboarding) {
-          return const MainScreen();
+          return const SubscriptionWrapper();
         } else {
           return const OnboardingScreen();
         }
+      },
+    );
+  }
+}
+
+class SubscriptionWrapper extends StatelessWidget {
+  const SubscriptionWrapper({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final subscriptionService = SubscriptionService();
+    
+    return StreamBuilder<bool>(
+      stream: subscriptionService.subscriptionStatusStream,
+      initialData: subscriptionService.hasContentAccess,
+      builder: (context, snapshot) {
+        return const MainScreen();
       },
     );
   }

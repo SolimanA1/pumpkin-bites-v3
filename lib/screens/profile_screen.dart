@@ -5,7 +5,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/auth_service.dart';
+import '../services/subscription_service.dart';
 import '../models/user_model.dart';
+import '../screens/subscription_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -927,6 +929,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Notifications',
               onTap: _showNotificationSettings,
             ),
+            _buildSubscriptionMenuItem(),
             _buildMenuItem(
               icon: Icons.share,
               title: 'Share History',
@@ -1095,6 +1098,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionMenuItem() {
+    final subscriptionService = SubscriptionService();
+    
+    return StreamBuilder<bool>(
+      stream: subscriptionService.subscriptionStatusStream,
+      initialData: subscriptionService.isSubscriptionActive,
+      builder: (context, snapshot) {
+        final isSubscribed = snapshot.data ?? false;
+        
+        if (isSubscribed) {
+          return _buildMenuItem(
+            icon: Icons.star,
+            title: 'Subscription Active',
+            onTap: () => _showSubscriptionDetails(),
+          );
+        } else if (subscriptionService.isInTrialPeriod) {
+          return StreamBuilder<int>(
+            stream: subscriptionService.trialDaysRemainingStream,
+            initialData: subscriptionService.trialDaysRemaining,
+            builder: (context, trialSnapshot) {
+              final daysRemaining = trialSnapshot.data ?? 0;
+              return _buildMenuItem(
+                icon: Icons.timer,
+                title: 'Trial: $daysRemaining days left',
+                onTap: () => _navigateToSubscription(),
+                badge: daysRemaining,
+              );
+            },
+          );
+        } else {
+          return _buildMenuItem(
+            icon: Icons.upgrade,
+            title: 'Subscribe for \$2.99/month',
+            onTap: () => _navigateToSubscription(),
+            textColor: const Color(0xFFF56500),
+          );
+        }
+      },
+    );
+  }
+  
+  void _navigateToSubscription() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SubscriptionScreen(),
+      ),
+    );
+  }
+  
+  void _showSubscriptionDetails() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Subscription Active'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('✓ Unlimited access to all stories'),
+            Text('✓ New stories added regularly'),
+            Text('✓ Ad-free experience'),
+            Text('✓ Offline listening'),
+            SizedBox(height: 16),
+            Text(
+              'You can manage your subscription in your App Store account settings.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }

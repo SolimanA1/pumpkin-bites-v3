@@ -257,13 +257,52 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           // Description
           Text(
-            'Book insights served silly-side up.\n\nForget boring summaries and lectures. Get the most thought-provoking ideas from great books in daily 3-minute audio snacks that actually fit into your life.',
+            'Big ideas from great books, served up in bite-sized pieces that won\'t make your eyes glaze over.\n\nDaily 3-minute wisdom drops that actually fit into real life. Smart stuff, zero stuffiness.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey.shade700,
               height: 1.5,
             ),
             textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Trial info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF56500), Color(0xFFFF8A50)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.star,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Try it free for a whole week',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Then \$2.99/month • Change your mind anytime',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 40),
@@ -290,7 +329,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           // Header
           const Text(
-            'How Pumpkin Bites Works',
+            'Here\'s How We Roll',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -305,7 +344,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _buildFeatureCard(
             icon: Icons.lock_clock,
             title: 'Daily Brain Food',
-            description: 'One bite-sized insight delivered fresh each day at your chosen time',
+            description: 'One perfectly-sized insight delivered fresh each day when you want it',
             color: const Color(0xFFF56500),
           ),
 
@@ -314,8 +353,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           // Feature 2: Deliberately Silly
           _buildFeatureCard(
             icon: Icons.emoji_emotions,
-            title: 'Deliberately Silly',
-            description: 'Big ideas explained through real-life stories that won\'t make your eyes glaze over',
+            title: 'Actually Interesting',
+            description: 'Big ideas explained through stories that won\'t put you to sleep',
             color: const Color(0xFFFFB366),
           ),
 
@@ -324,8 +363,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           // Feature 3: Join Discussions
           _buildFeatureCard(
             icon: Icons.chat_bubble,
-            title: 'Join Discussions',
-            description: 'Share thoughts, react with emojis, and connect with other curious minds',
+            title: 'Chat About It',
+            description: 'Share thoughts, react with emojis, and connect with other curious humans',
             color: const Color(0xFFE55100),
           ),
 

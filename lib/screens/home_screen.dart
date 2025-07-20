@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
+import '../services/subscription_service.dart';
+import '../widgets/subscription_gate.dart';
+import '../widgets/locked_bite_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -133,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load content';
+        _errorMessage = 'Oops! Having trouble fetching today\'s wisdom. Give us a moment to sort this out.';
         _isLoading = false;
       });
     }
@@ -163,15 +166,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: Color(0xFFF56500),
                 ),
               ),
               const SizedBox(height: 16),
+              const Icon(
+                Icons.schedule,
+                size: 48,
+                color: Color(0xFFF56500),
+              ),
+              const SizedBox(height: 12),
               const Text(
-                'No content available for today. Check back later!',
+                'Today\'s wisdom is still simmering.\nCheck back in a bit!',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey,
+                  color: Color(0xFF666666),
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -416,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ElevatedButton.icon(
                             onPressed: _isTodaysBiteUnlocked ? () => _navigateToPlayer(_todaysBite!) : null,
                             icon: Icon(_isTodaysBiteUnlocked ? Icons.play_circle_filled : Icons.lock),
-                            label: Text(_isTodaysBiteUnlocked ? 'PLAY NOW' : 'LOCKED'),
+                            label: Text(_isTodaysBiteUnlocked ? 'Listen Now' : 'Locked'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _isTodaysBiteUnlocked 
                                   ? const Color(0xFFF56500) 
@@ -642,15 +653,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          _errorMessage,
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
+                        const Icon(
+                          Icons.refresh,
+                          size: 48,
+                          color: Color(0xFFF56500),
                         ),
                         const SizedBox(height: 16),
+                        Text(
+                          _errorMessage,
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: _loadContent,
-                          child: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF56500),
+                          ),
+                          child: const Text('Try Again'),
                         ),
                       ],
                     ),
@@ -663,11 +686,79 @@ class _HomeScreenState extends State<HomeScreen> {
                       parent: BouncingScrollPhysics(),
                     ),
                     children: [
-                      _buildTodaysBiteSection(),
-                      _buildFreshBitesWaitingSection(),
+                      const TrialStatusWidget(),
+                      _buildTodaysBiteSectionWithAccess(),
+                      _buildFreshBitesSectionWithAccess(),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildTodaysBiteSectionWithAccess() {
+    final subscriptionService = SubscriptionService();
+    
+    return StreamBuilder<bool>(
+      stream: subscriptionService.subscriptionStatusStream,
+      initialData: subscriptionService.hasContentAccess,
+      builder: (context, snapshot) {
+        final hasAccess = snapshot.data ?? false;
+        
+        if (hasAccess || subscriptionService.hasContentAccess) {
+          // User has access - show normal content
+          return _buildTodaysBiteSection();
+        } else {
+          // Trial expired - show locked bite using user's NEXT sequential bite
+          return FutureBuilder<BiteModel?>(
+            future: _contentService.getUsersNextBite(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasData && snapshot.data != null) {
+                return LockedBiteWidget(
+                  bite: snapshot.data!,
+                  title: "Today's Bite",
+                );
+              } else {
+                // Fallback to subscription gate if no bite available
+                return const SubscriptionGate(
+                  child: SizedBox.shrink(),
+                  customMessage: "Today's Story",
+                );
+              }
+            },
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildFreshBitesSectionWithAccess() {
+    final subscriptionService = SubscriptionService();
+    
+    return StreamBuilder<bool>(
+      stream: subscriptionService.subscriptionStatusStream,
+      initialData: subscriptionService.hasContentAccess,
+      builder: (context, snapshot) {
+        final hasAccess = snapshot.data ?? false;
+        
+        if (hasAccess || subscriptionService.hasContentAccess) {
+          // User has access - show normal content
+          return _buildFreshBitesWaitingSection();
+        } else if (_catchUpBites.isNotEmpty) {
+          // Trial expired - show user's most recent available bite as locked preview
+          return LockedBiteWidget(
+            bite: _catchUpBites.first, // This is already user-specific from the fixed getCatchUpBites
+            title: "Fresh Stories",
+          );
+        } else {
+          // No content available - show subscription gate
+          return const SubscriptionGate(
+            child: SizedBox.shrink(),
+            customMessage: "Fresh Stories",
+          );
+        }
+      },
     );
   }
 

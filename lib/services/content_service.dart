@@ -3,55 +3,136 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/bite_model.dart';
 import '../models/comment_model.dart';
+import '../models/user_model.dart';
 
 class ContentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Get today's bite with improved error handling
+  // Get today's bite based on user's personal progression (CRITICAL FIX)
   Future<BiteModel?> getTodaysBite() async {
     try {
-      print("Getting today's bite...");
+      print("Getting today's bite for user progression...");
       
-      // First, try to get a bite specifically for today
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      print("Today's date: $today");
-      
-      var querySnapshot = await _firestore
-          .collection('bites')
-          .where('date', isEqualTo: today)
-          .limit(1)
-          .get();
-
-      // If no bite found for today, try to get the most recent one
-      if (querySnapshot.docs.isEmpty) {
-        print("No bite found for today, getting most recent one...");
-        querySnapshot = await _firestore
-            .collection('bites')
-            .orderBy('date', descending: true)
-            .limit(1)
-            .get();
-      }
-      
-      // If still no bites, try to get any bite
-      if (querySnapshot.docs.isEmpty) {
-        print("No recent bites found, getting any bite...");
-        querySnapshot = await _firestore
-            .collection('bites')
-            .limit(1)
-            .get();
-      }
-      
-      if (querySnapshot.docs.isEmpty) {
-        print("No bites found at all");
+      final user = _auth.currentUser;
+      if (user == null) {
+        print("No authenticated user");
         return null;
       }
       
+      // Get user's registration date to calculate their day number
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        print("User document not found");
+        return null;
+      }
+      
+      final userData = UserModel.fromFirestore(userDoc);
+      final userRegistrationDate = userData.createdAt;
+      
+      // Calculate the user's current day (Day 1, Day 2, etc.)
+      final now = DateTime.now();
+      final daysSinceRegistration = now.difference(userRegistrationDate).inDays + 1; // +1 so Day 1 is first day
+      
+      print("User registered: $userRegistrationDate");
+      print("User is on Day: $daysSinceRegistration");
+      
+      // Get the bite for this specific day number
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isEqualTo: daysSinceRegistration)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        print("No bite found for day $daysSinceRegistration, trying closest available");
+        
+        // If no exact day match, get the highest available day number that's <= user's day
+        final fallbackQuery = await _firestore
+            .collection('bites')
+            .where('dayNumber', isLessThanOrEqualTo: daysSinceRegistration)
+            .orderBy('dayNumber', descending: true)
+            .limit(1)
+            .get();
+            
+        if (fallbackQuery.docs.isEmpty) {
+          print("No bites available for user's progression");
+          return null;
+        }
+        
+        final doc = fallbackQuery.docs.first;
+        print("Found fallback bite for day ${doc.data()['dayNumber']}: ${doc.id}");
+        return BiteModel.fromFirestore(doc);
+      }
+      
       final doc = querySnapshot.docs.first;
-      print("Found bite: ${doc.id}");
+      print("Found exact bite for day $daysSinceRegistration: ${doc.id}");
       return BiteModel.fromFirestore(doc);
     } catch (e) {
       print('Error getting today\'s bite: $e');
+      return null;
+    }
+  }
+
+  // Get user's NEXT sequential bite (for locked preview after trial expires) - CRITICAL
+  Future<BiteModel?> getUsersNextBite() async {
+    try {
+      print("Getting user's NEXT sequential bite...");
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        print("No authenticated user");
+        return null;
+      }
+      
+      // Get user's registration date to calculate their day number
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        print("User document not found");
+        return null;
+      }
+      
+      final userData = UserModel.fromFirestore(userDoc);
+      final userRegistrationDate = userData.createdAt;
+      
+      // Calculate the user's current day (Day 1, Day 2, etc.)
+      final now = DateTime.now();
+      final daysSinceRegistration = now.difference(userRegistrationDate).inDays + 1;
+      
+      print("User is on Day: $daysSinceRegistration - getting NEXT bite");
+      
+      // Get the bite for this specific day number (their current/next bite)
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isEqualTo: daysSinceRegistration)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        print("No bite found for day $daysSinceRegistration, trying highest available");
+        
+        // If no exact day match, get the highest available day number
+        final fallbackQuery = await _firestore
+            .collection('bites')
+            .orderBy('dayNumber', descending: true)
+            .limit(1)
+            .get();
+            
+        if (fallbackQuery.docs.isEmpty) {
+          print("No bites available at all");
+          return null;
+        }
+        
+        final doc = fallbackQuery.docs.first;
+        print("Found highest available bite for day ${doc.data()['dayNumber']}: ${doc.id}");
+        return BiteModel.fromFirestore(doc);
+      }
+      
+      final doc = querySnapshot.docs.first;
+      print("Found exact NEXT bite for day $daysSinceRegistration: ${doc.id}");
+      return BiteModel.fromFirestore(doc);
+    } catch (e) {
+      print('Error getting user\'s next bite: $e');
       return null;
     }
   }
@@ -76,39 +157,47 @@ class ContentService {
     }
   }
 
-  // Get catch-up bites (recent bites excluding today's)
+  // Get catch-up bites based on user's progression (CRITICAL FIX)
   Future<List<BiteModel>> getCatchUpBites({int limit = 7}) async {
     try {
-      print("Getting catch-up bites...");
+      print("Getting catch-up bites for user progression...");
       
-      // Get all bites, ordered by date
-      final querySnapshot = await _firestore
-          .collection('bites')
-          .orderBy('date', descending: true)
-          .limit(limit + 1) // Get one extra to account for today's bite
-          .get();
-      
-      if (querySnapshot.docs.isEmpty) {
-        print("No catch-up bites found");
+      final user = _auth.currentUser;
+      if (user == null) {
+        print("No authenticated user");
         return [];
       }
       
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final List<BiteModel> catchUpBites = [];
+      // Get user's registration date to calculate their current day
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        print("User document not found");
+        return [];
+      }
       
+      final userData = UserModel.fromFirestore(userDoc);
+      final userRegistrationDate = userData.createdAt;
+      final now = DateTime.now();
+      final userCurrentDay = now.difference(userRegistrationDate).inDays + 1;
+      
+      print("Getting catch-up bites for user on day $userCurrentDay");
+      
+      // Get bites for days 1 through (current day - 1) - these are the user's available catch-up content
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isLessThan: userCurrentDay)
+          .orderBy('dayNumber', descending: true) // Most recent first
+          .limit(limit)
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) {
+        print("No catch-up bites found for user progression");
+        return [];
+      }
+      
+      final List<BiteModel> catchUpBites = [];
       for (final doc in querySnapshot.docs) {
-        final bite = BiteModel.fromFirestore(doc);
-        final biteDate = DateFormat('yyyy-MM-dd').format(bite.date);
-        
-        // Skip today's bite
-        if (biteDate != today) {
-          catchUpBites.add(bite);
-        }
-        
-        // Only get the requested limit
-        if (catchUpBites.length >= limit) {
-          break;
-        }
+        catchUpBites.add(BiteModel.fromFirestore(doc));
       }
       
       print("Found ${catchUpBites.length} catch-up bites");
