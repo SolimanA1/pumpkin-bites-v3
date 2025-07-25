@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
 import 'package:pumpkin_bites_new/screens/library_screen.dart';
-import 'package:pumpkin_bites_new/screens/unified_dinner_table_screen.dart';
+import 'package:pumpkin_bites_new/screens/simple_dinner_table_screen.dart';
 import 'package:pumpkin_bites_new/screens/profile_screen.dart';
 import 'package:pumpkin_bites_new/screens/player_screen.dart';
 import 'package:pumpkin_bites_new/screens/diagnostic_screen.dart';
@@ -164,7 +164,7 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/home': (context) => _wrapWithFloatingPlayer(const HomeScreen()),
         '/library': (context) => _wrapWithFloatingPlayer(const LibraryScreen()),
-        '/dinner_table': (context) => _wrapWithFloatingPlayer(const UnifiedDinnerTableScreen()),
+        '/dinner_table': (context) => _wrapWithFloatingPlayer(const SimpleReelDinnerTableScreen()),
         '/profile': (context) => _wrapWithFloatingPlayer(const ProfileScreen()),
         '/diagnostics': (context) => _wrapWithFloatingPlayer(const DiagnosticScreen()),
         '/share_history': (context) => _wrapWithFloatingPlayer(const ShareHistoryScreen()),
@@ -339,7 +339,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const LibraryScreen(),
-    const UnifiedDinnerTableScreen(),
+    const SimpleReelDinnerTableScreen(),
     const ProfileScreen(),
   ];
 

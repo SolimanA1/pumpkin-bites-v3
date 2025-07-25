@@ -1,0 +1,184 @@
+{
+  "bites": [
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-3s.mp3",
+      "category": "Psychology",
+      "commentCount": 0,
+      "dayNumber": 1,
+      "description": "Discover why small, consistent changes create massive transformation while big dramatic shifts often fail miserably.",
+      "duration": 180,
+      "durationInSeconds": 180,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=500&fit=crop&crop=face",
+      "title": "The Tiny Revolution"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-6s.mp3",
+      "category": "Psychology",
+      "commentCount": 0,
+      "dayNumber": 2,
+      "description": "Why forgetting harmful patterns is more powerful than learning new ones. The science of strategic unlearning.",
+      "duration": 210,
+      "durationInSeconds": 210,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&h=500&fit=crop&crop=face",
+      "title": "The Undoing Hypothesis"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+      "category": "Relationships",
+      "commentCount": 0,
+      "dayNumber": 3,
+      "description": "The modern dilemma of digital boundaries and what that 2 AM text really says about your relationship with technology.",
+      "duration": 195,
+      "durationInSeconds": 195,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&h=500&fit=crop&crop=face",
+      "title": "The Midnight Text Dilemma"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3",
+      "category": "Psychology",
+      "commentCount": 0,
+      "dayNumber": 4,
+      "description": "The hidden trap of seeking validation and why asking for permission might be the very thing keeping you stuck.",
+      "duration": 220,
+      "durationInSeconds": 220,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&h=500&fit=crop&crop=face",
+      "title": "The Permission Paradox"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
+      "category": "Life Skills",
+      "commentCount": 0,
+      "dayNumber": 5,
+      "description": "How tiny Tuesday habits compound into massive life changes. The surprising power of picking just one day to transform everything.",
+      "duration": 200,
+      "durationInSeconds": 200,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=500&fit=crop&crop=face",
+      "title": "The Tuesday Effect"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-18s.mp3",
+      "category": "Relationships",
+      "commentCount": 0,
+      "dayNumber": 6,
+      "description": "The unspoken rules that govern every relationship. Why what you don't say matters more than what you do.",
+      "duration": 185,
+      "durationInSeconds": 185,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=500&h=500&fit=crop&crop=face",
+      "title": "The Invisible Contract"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-21s.mp3",
+      "category": "Relationships",
+      "commentCount": 0,
+      "dayNumber": 7,
+      "description": "The mathematical approach to love and commitment. When to stop looking and start choosing, based on actual research.",
+      "duration": 230,
+      "durationInSeconds": 230,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1518621012118-1d30fb4aa2ab?w=500&h=500&fit=crop&crop=face",
+      "title": "The 37% Rule"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-24s.mp3",
+      "category": "Psychology",
+      "commentCount": 0,
+      "dayNumber": 8,
+      "description": "Why your brain prefers stories over statistics and how understanding this changes everything about learning and memory.",
+      "duration": 205,
+      "durationInSeconds": 205,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=500&h=500&fit=crop&crop=face",
+      "title": "Why Your Brain Loves Stories More Than Facts"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-27s.mp3",
+      "category": "Psychology",
+      "commentCount": 0,
+      "dayNumber": 9,
+      "description": "The surprising truth about procrastination and why making friends with delay might be more productive than fighting it.",
+      "duration": 190,
+      "durationInSeconds": 190,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=500&h=500&fit=crop&crop=face",
+      "title": "The Procrastination Paradox (And How to Befriend It)"
+    },
+    {
+      "audioUrl": "https://samplelib.com/lib/preview/mp3/sample-30s.mp3",
+      "category": "Business",
+      "commentCount": 0,
+      "dayNumber": 10,
+      "description": "The hidden psychology behind high-stakes decisions. What poker professionals understand about life that most people miss.",
+      "duration": 215,
+      "durationInSeconds": 215,
+      "isPremiumOnly": false,
+      "reactionCounts": {
+        "aha": 0,
+        "gameChanger": 0,
+        "takingNotes": 0,
+        "thinking": 0
+      },
+      "thumbnailUrl": "https://images.unsplash.com/photo-1541278107931-e006523892df?w=500&h=500&fit=crop&crop=face",
+      "title": "What Poker Players Know About Life Decisions"
+    }
+  ]
+}
