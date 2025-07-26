@@ -1,4 +1,6 @@
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_session/audio_session.dart';
 import '../models/bite_model.dart';
 
 class AudioPlayerService {
@@ -19,6 +21,18 @@ class AudioPlayerService {
   // Initialize player
   Future<void> init() async {
     print("Initializing audio player service");
+    
+    // Initialize just_audio_background for media controls
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.pumpkinbites.channel.audio',
+      androidNotificationChannelName: 'Pumpkin Bites Audio',
+      androidNotificationChannelDescription: 'Audio playback for Pumpkin Bites',
+    );
+    
+    // Initialize audio session for background playback
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+    
     // Initialize with better error handling
     _player.playbackEventStream.listen(
       (event) => {
@@ -47,14 +61,42 @@ class AudioPlayerService {
       // Stop previous playback if any
       await _player.stop();
       
-      // Set the audio source with better error handling
+      // Create MediaItem for lock screen and notification controls
+      final mediaItem = MediaItem(
+        id: bite.id,
+        title: bite.title,
+        artist: 'Pumpkin Bites',
+        duration: Duration(seconds: bite.duration),
+        artUri: bite.thumbnailUrl.isNotEmpty ? Uri.parse(bite.thumbnailUrl) : null,
+        album: bite.category,
+        extras: {
+          'authorName': bite.authorName,
+          'description': bite.description,
+        },
+      );
+      
+      // Set the audio source with media item for background controls
       try {
-        await _player.setUrl(audioUrl);
-        print("Audio source set successfully");
+        await _player.setAudioSource(
+          AudioSource.uri(
+            Uri.parse(audioUrl),
+            tag: mediaItem,
+          ),
+        );
+        print("Audio source set successfully with media controls");
       } catch (e) {
         print("Error setting audio source: $e");
         // Try fallback URL if setting url fails
-        await _player.setUrl("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
+        final fallbackMediaItem = mediaItem.copyWith(
+          id: '${bite.id}_fallback',
+          title: '${bite.title} (Fallback)',
+        );
+        await _player.setAudioSource(
+          AudioSource.uri(
+            Uri.parse("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"),
+            tag: fallbackMediaItem,
+          ),
+        );
       }
       
       // Wait for the duration to be available
