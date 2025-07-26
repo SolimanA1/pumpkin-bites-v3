@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
 
@@ -11,7 +13,7 @@ class LibraryScreen extends StatefulWidget {
   _LibraryScreenState createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   final ContentService _contentService = ContentService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,6 +24,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   bool _isLoading = true;
   String _errorMessage = '';
   List<String> _favoriteIds = [];
+  Map<String, int> _commentCountCache = {};
   
   // Performance optimization: cache timestamp to avoid unnecessary refreshes
   DateTime? _lastFavoritesRefresh;
@@ -119,12 +122,21 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   Future<int> _getCommentCount(String biteId) async {
+    // Check cache first for performance
+    if (_commentCountCache.containsKey(biteId)) {
+      return _commentCountCache[biteId]!;
+    }
+    
     try {
       final commentsSnapshot = await _firestore
           .collection('comments')
           .where('biteId', isEqualTo: biteId)
           .get();
-      return commentsSnapshot.docs.length;
+      final count = commentsSnapshot.docs.length;
+      
+      // Cache the result
+      _commentCountCache[biteId] = count;
+      return count;
     } catch (e) {
       print('DEBUG: Library - Error getting comment count for bite $biteId: $e');
       return 0;
@@ -271,21 +283,28 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                 AspectRatio(
                   aspectRatio: 16 / 9,
                   child: bite.thumbnailUrl.isNotEmpty
-                      ? Image.network(
-                          bite.thumbnailUrl,
+                      ? CachedNetworkImage(
+                          imageUrl: bite.thumbnailUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade300,
-                              child: const Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 48,
-                                  color: Colors.grey,
-                                ),
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey.shade300,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFF56500),
                               ),
-                            );
-                          },
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey.shade300,
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: 48,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
                         )
                       : Container(
                           color: Colors.grey.shade300,
@@ -527,21 +546,26 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'My Library',
-          style: TextStyle(
+          style: GoogleFonts.crimsonText(
             fontWeight: FontWeight.w600,
-            fontSize: 20,
-            color: Color(0xFFF56500),
-            letterSpacing: 0.3,
+            fontSize: 22,
+            color: const Color(0xFFF56500),
+            letterSpacing: 0.5,
           ),
         ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 1,
-        shadowColor: Color(0xFFF56500).withOpacity(0.08),
+        shadowColor: const Color(0xFFF56500).withOpacity(0.08),
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFFF56500),
@@ -622,6 +646,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     _tabController.removeListener(_onTabChange);
     _tabController.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    _commentCountCache.clear();
     super.dispose();
   }
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
 import '../services/subscription_service.dart';
@@ -16,22 +18,29 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ContentService _contentService = ContentService();
+  late final SubscriptionService _subscriptionService;
   BiteModel? _todaysBite;
   List<BiteModel> _catchUpBites = [];
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _isLoadingComments = false;
   String _errorMessage = '';
+  String _loadingMessage = 'Loading content...';
   Timer? _refreshTimer;
   Timer? _countdownTimer;
+  Map<String, int> _commentCountCache = {};
   
-  // Sequential release system variables
+  // Sequential release system variables - cached for performance
   bool _isTodaysBiteUnlocked = false;
   DateTime? _nextUnlockTime;
   Duration _timeUntilUnlock = Duration.zero;
+  DateTime? _lastUnlockCalculation;
+  BiteModel? _cachedTodaysBite;
 
   @override
   void initState() {
     super.initState();
+    _subscriptionService = SubscriptionService();
     _loadContent();
     _startContentRefreshTimer();
     _startCountdownTimer();
@@ -121,16 +130,50 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadContent() async {
+    final stopwatch = Stopwatch()..start();
     try {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
+        _loadingMessage = 'Loading content...';
       });
 
-      final todaysBite = await _contentService.getTodaysBite();
+      print('PERF: Home - Starting content load...');
+      
+      final todaysBiteStopwatch = Stopwatch()..start();
+      BiteModel? todaysBite;
+      
+      // Check if we have a cached today's bite for the current day
+      if (_cachedTodaysBite != null && 
+          _lastUnlockCalculation != null &&
+          _lastUnlockCalculation!.day == DateTime.now().day &&
+          _lastUnlockCalculation!.month == DateTime.now().month &&
+          _lastUnlockCalculation!.year == DateTime.now().year) {
+        // Use cached today's bite
+        todaysBite = _cachedTodaysBite;
+        print('PERF: Home - Used cached today\'s bite');
+      } else {
+        // Fetch and cache today's bite
+        todaysBite = await _contentService.getTodaysBite();
+        _cachedTodaysBite = todaysBite;
+        print('PERF: Home - Fetched and cached today\'s bite');
+      }
+      
+      todaysBiteStopwatch.stop();
+      print('PERF: Home - getTodaysBite took ${todaysBiteStopwatch.elapsedMilliseconds}ms');
+
+      final catchUpStopwatch = Stopwatch()..start();
       final catchUpBites = await _contentService.getCatchUpBites();
+      catchUpStopwatch.stop();
+      print('PERF: Home - getCatchUpBites took ${catchUpStopwatch.elapsedMilliseconds}ms');
 
       // Load comment counts for all bites (similar to dinner table)
+      setState(() {
+        _loadingMessage = 'Loading discussions...';
+        _isLoadingComments = true;
+      });
+      
+      final commentStopwatch = Stopwatch()..start();
       BiteModel? todaysBiteWithComments;
       if (todaysBite != null) {
         final todaysCommentCount = await _getCommentCount(todaysBite.id);
@@ -144,18 +187,40 @@ class _HomeScreenState extends State<HomeScreen> {
         catchUpBitesWithComments.add(bite.copyWith(commentCount: commentCount));
         print('DEBUG: Bite ${bite.id} (${bite.title}) has $commentCount comments');
       }
+      commentStopwatch.stop();
+      print('PERF: Home - Loading ${catchUpBites.length + 1} comment counts took ${commentStopwatch.elapsedMilliseconds}ms');
 
-      // Initialize sequential release logic
+      // Initialize sequential release logic - use cache if valid
+      final releaseStopwatch = Stopwatch()..start();
       final now = DateTime.now();
-      final unlockHour = 9; // 9 AM unlock time
-      final todayUnlockTime = DateTime(now.year, now.month, now.day, unlockHour);
-      
-      bool isUnlocked = now.isAfter(todayUnlockTime);
+      bool isUnlocked;
       DateTime? nextUnlock;
       
-      if (!isUnlocked) {
-        nextUnlock = todayUnlockTime;
+      // Check if we can use cached unlock calculation (valid for same day)
+      if (_lastUnlockCalculation != null && 
+          _lastUnlockCalculation!.day == now.day &&
+          _lastUnlockCalculation!.month == now.month &&
+          _lastUnlockCalculation!.year == now.year) {
+        // Use cached values
+        isUnlocked = _isTodaysBiteUnlocked;
+        nextUnlock = _nextUnlockTime;
+        print('PERF: Home - Used cached unlock calculation');
+      } else {
+        // Calculate new unlock status
+        final unlockHour = 9; // 9 AM unlock time
+        final todayUnlockTime = DateTime(now.year, now.month, now.day, unlockHour);
+        
+        isUnlocked = now.isAfter(todayUnlockTime);
+        if (!isUnlocked) {
+          nextUnlock = todayUnlockTime;
+        }
+        
+        // Cache the calculation
+        _lastUnlockCalculation = now;
+        print('PERF: Home - Calculated new unlock status');
       }
+      releaseStopwatch.stop();
+      print('PERF: Home - Release logic took ${releaseStopwatch.elapsedMilliseconds}ms');
 
       setState(() {
         _todaysBite = todaysBiteWithComments;
@@ -163,9 +228,15 @@ class _HomeScreenState extends State<HomeScreen> {
         _isTodaysBiteUnlocked = isUnlocked;
         _nextUnlockTime = nextUnlock;
         _isLoading = false;
+        _isLoadingComments = false;
+        _loadingMessage = '';
       });
+      
+      stopwatch.stop();
+      print('PERF: Home - Total _loadContent took ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
-      print('DEBUG: Error loading content: $e');
+      stopwatch.stop();
+      print('PERF: Home - _loadContent FAILED after ${stopwatch.elapsedMilliseconds}ms: $e');
       setState(() {
         _errorMessage = 'Oops! Having trouble fetching today\'s wisdom. Give us a moment to sort this out.';
         _isLoading = false;
@@ -174,12 +245,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<int> _getCommentCount(String biteId) async {
+    // Check cache first for performance
+    if (_commentCountCache.containsKey(biteId)) {
+      return _commentCountCache[biteId]!;
+    }
+    
     try {
       final commentsSnapshot = await FirebaseFirestore.instance
           .collection('comments')
           .where('biteId', isEqualTo: biteId)
           .get();
-      return commentsSnapshot.docs.length;
+      final count = commentsSnapshot.docs.length;
+      
+      // Cache the result
+      _commentCountCache[biteId] = count;
+      return count;
     } catch (e) {
       print('DEBUG: Error getting comment count for bite $biteId: $e');
       return 0;
@@ -236,12 +316,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Today\'s Bite',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFF56500),
+                style: GoogleFonts.crimsonText(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFF56500),
                 ),
               ),
               const SizedBox(height: 16),
@@ -360,23 +440,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     fit: StackFit.expand,
                     children: [
                       _todaysBite!.thumbnailUrl.isNotEmpty
-                          ? Image.network(
-                              _todaysBite!.thumbnailUrl,
+                          ? CachedNetworkImage(
+                              imageUrl: _todaysBite!.thumbnailUrl,
                               fit: BoxFit.cover,
                               color: _isTodaysBiteUnlocked ? null : Colors.grey,
                               colorBlendMode: _isTodaysBiteUnlocked ? null : BlendMode.saturation,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey.shade300,
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.image_not_supported,
-                                      size: 48,
-                                      color: Colors.grey,
-                                    ),
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey.shade300,
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFFF56500),
                                   ),
-                                );
-                              },
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey.shade300,
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
                             )
                           : Container(
                               color: Colors.grey.shade300,
@@ -600,19 +687,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 60,
                   height: 60,
                   child: bite.thumbnailUrl.isNotEmpty
-                      ? Image.network(
-                          bite.thumbnailUrl,
+                      ? CachedNetworkImage(
+                          imageUrl: bite.thumbnailUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade300,
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                size: 24,
-                                color: Colors.grey,
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey.shade300,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Color(0xFFF56500),
                               ),
-                            );
-                          },
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey.shade300,
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              size: 24,
+                              color: Colors.grey,
+                            ),
+                          ),
                         )
                       : Container(
                           color: Colors.grey.shade300,
@@ -737,18 +831,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Pumpkin Bites',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-            color: Color(0xFFF56500),
-            letterSpacing: 0.5,
+          style: GoogleFonts.alice(
+            fontWeight: FontWeight.w600,
+            fontSize: 24,
+            color: const Color(0xFFF56500),
+            letterSpacing: 0.8,
           ),
         ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 2,
-        shadowColor: Color(0xFFF56500).withOpacity(0.1),
+        shadowColor: const Color(0xFFF56500).withOpacity(0.1),
         actions: [
           // Notification icon (can be implemented later)
           IconButton(
@@ -760,7 +855,35 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(
+                    color: Color(0xFFF56500),
+                    strokeWidth: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _loadingMessage,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                  if (_isLoadingComments) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'This might take a moment...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF999999),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            )
           : _errorMessage.isNotEmpty
               ? Center(
                   child: Padding(
@@ -811,15 +934,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTodaysBiteSectionWithAccess() {
-    final subscriptionService = SubscriptionService();
-    
     return StreamBuilder<bool>(
-      stream: subscriptionService.subscriptionStatusStream,
-      initialData: subscriptionService.hasContentAccess,
+      stream: _subscriptionService.subscriptionStatusStream,
+      initialData: _subscriptionService.hasContentAccess,
       builder: (context, snapshot) {
         final hasAccess = snapshot.data ?? false;
         
-        if (hasAccess || subscriptionService.hasContentAccess) {
+        if (hasAccess || _subscriptionService.hasContentAccess) {
           // User has access - show normal content
           return _buildTodaysBiteSection();
         } else {
@@ -849,15 +970,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFreshBitesSectionWithAccess() {
-    final subscriptionService = SubscriptionService();
-    
     return StreamBuilder<bool>(
-      stream: subscriptionService.subscriptionStatusStream,
-      initialData: subscriptionService.hasContentAccess,
+      stream: _subscriptionService.subscriptionStatusStream,
+      initialData: _subscriptionService.hasContentAccess,
       builder: (context, snapshot) {
         final hasAccess = snapshot.data ?? false;
         
-        if (hasAccess || subscriptionService.hasContentAccess) {
+        if (hasAccess || _subscriptionService.hasContentAccess) {
           // User has access - show normal content
           return _buildFreshBitesWaitingSection();
         } else if (_catchUpBites.isNotEmpty) {
@@ -881,6 +1000,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     _countdownTimer?.cancel();
+    _commentCountCache.clear();
     super.dispose();
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/bite_model.dart';
 import 'comment_detail_screen.dart';
 
@@ -12,8 +13,12 @@ class SimpleReelDinnerTableScreen extends StatefulWidget {
 
 class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScreen> {
   List<BiteModel> _bitesWithComments = [];
+  List<BiteModel> _allBites = []; // Cache all bites for pagination
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String _errorMessage = '';
+  int _currentPage = 0;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -22,50 +27,96 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
   }
 
   Future<void> _loadBitesWithComments() async {
+    final stopwatch = Stopwatch()..start();
     try {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
+        _currentPage = 0;
       });
 
-      // Get all bites
+      print('PERF: DinnerTable - Starting optimized load...');
+
+      // Get all bites first (fast query)
+      final bitesQueryStopwatch = Stopwatch()..start();
       final bitesSnapshot = await FirebaseFirestore.instance
           .collection('bites')
           .get();
+      bitesQueryStopwatch.stop();
+      print('PERF: DinnerTable - Bites query took ${bitesQueryStopwatch.elapsedMilliseconds}ms, found ${bitesSnapshot.docs.length} bites');
 
-      List<BiteModel> bitesWithComments = [];
+      // Cache all bites
+      _allBites = bitesSnapshot.docs.map((doc) => BiteModel.fromFirestore(doc)).toList();
 
-      // For each bite, count comments and add to list if > 0
-      for (var biteDoc in bitesSnapshot.docs) {
-        final bite = BiteModel.fromFirestore(biteDoc);
-        
-        // Count comments for this bite
-        final commentsSnapshot = await FirebaseFirestore.instance
-            .collection('comments')
-            .where('biteId', isEqualTo: bite.id)
-            .get();
-        
-        final commentCount = commentsSnapshot.docs.length;
-        
-        if (commentCount > 0) {
-          // Add bite with updated comment count
-          bitesWithComments.add(bite.copyWith(commentCount: commentCount));
-        }
-      }
-
-      // Sort by comment count (most discussed first)
-      bitesWithComments.sort((a, b) => b.commentCount.compareTo(a.commentCount));
-
-      setState(() {
-        _bitesWithComments = bitesWithComments;
-        _isLoading = false;
-      });
+      // Load first page immediately for fast UI response
+      await _loadPage(0, showFirstPageFast: true);
+      
+      stopwatch.stop();
+      print('PERF: DinnerTable - Fast initial load took ${stopwatch.elapsedMilliseconds}ms');
+      
+      // Continue loading more pages in background
+      _loadRemainingPagesInBackground();
+      
     } catch (e) {
-      print('Error loading bites with comments: $e');
+      stopwatch.stop();
+      print('PERF: DinnerTable - FAILED after ${stopwatch.elapsedMilliseconds}ms: $e');
       setState(() {
         _errorMessage = 'Failed to load discussions: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadPage(int page, {bool showFirstPageFast = false}) async {
+    final pageStopwatch = Stopwatch()..start();
+    
+    final startIndex = page * _pageSize;
+    final endIndex = (startIndex + _pageSize).clamp(0, _allBites.length);
+    
+    if (startIndex >= _allBites.length) return;
+    
+    final pageBites = _allBites.sublist(startIndex, endIndex);
+    List<BiteModel> pageBitesWithComments = [];
+
+    // Load comment counts for this page
+    for (var bite in pageBites) {
+      final commentsSnapshot = await FirebaseFirestore.instance
+          .collection('comments')
+          .where('biteId', isEqualTo: bite.id)
+          .get();
+      
+      final commentCount = commentsSnapshot.docs.length;
+      
+      if (commentCount > 0) {
+        pageBitesWithComments.add(bite.copyWith(commentCount: commentCount));
+      }
+    }
+    
+    pageStopwatch.stop();
+    print('PERF: DinnerTable - Page $page loaded in ${pageStopwatch.elapsedMilliseconds}ms, found ${pageBitesWithComments.length} bites with comments');
+
+    setState(() {
+      if (page == 0) {
+        _bitesWithComments = pageBitesWithComments;
+        _isLoading = false;
+      } else {
+        _bitesWithComments.addAll(pageBitesWithComments);
+      }
+      _currentPage = page;
+      _isLoadingMore = false;
+    });
+
+    // Sort the entire list after each page
+    _bitesWithComments.sort((a, b) => b.commentCount.compareTo(a.commentCount));
+  }
+
+  Future<void> _loadRemainingPagesInBackground() async {
+    final totalPages = (_allBites.length / _pageSize).ceil();
+    
+    for (int page = 1; page < totalPages; page++) {
+      // Add small delay to not overwhelm Firestore
+      await Future.delayed(const Duration(milliseconds: 100));
+      await _loadPage(page);
     }
   }
 
@@ -284,18 +335,19 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Dinner Table',
-          style: TextStyle(
+          style: GoogleFonts.crimsonText(
             fontWeight: FontWeight.w600,
-            fontSize: 20,
-            color: Color(0xFFF56500),
-            letterSpacing: 0.3,
+            fontSize: 22,
+            color: const Color(0xFFF56500),
+            letterSpacing: 0.5,
           ),
         ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 1,
-        shadowColor: Color(0xFFF56500).withOpacity(0.08),
+        shadowColor: const Color(0xFFF56500).withOpacity(0.08),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
