@@ -69,13 +69,15 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
     }
   }
 
-  void _navigateToCommentDetail(BiteModel bite) {
-    Navigator.push(
+  void _navigateToCommentDetail(BiteModel bite) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CommentDetailScreen(bite: bite),
       ),
     );
+    // Refresh the discussion when returning from comment detail
+    _loadBitesWithComments();
   }
 
   void _playBite(BiteModel bite) {
@@ -282,7 +284,18 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dinner Table'),
+        title: const Text(
+          'Dinner Table',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            color: Color(0xFFF56500),
+            letterSpacing: 0.3,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Color(0xFFF56500).withOpacity(0.08),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -60,6 +60,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   Future<void> _refreshFavorites() async {
+    print('DEBUG: Library - Refreshing favorites...');
     _lastFavoritesRefresh = DateTime.now();
     await _loadFavorites();
     await _loadFavoriteBites();
@@ -72,7 +73,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         _errorMessage = '';
       });
 
-      // Removed debug print for performance
+      print('DEBUG: Library - Loading content...');
       
       // Get all bites to ensure we have content
       final allBitesQuery = await _firestore.collection('bites').get();
@@ -87,16 +88,21 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         return;
       }
       
-      // Parse all bites
-      final allBites = allBitesQuery.docs.map((doc) => BiteModel.fromFirestore(doc)).toList();
-      // Removed debug print for performance
+      // Parse all bites and load comment counts
+      List<BiteModel> allBitesWithComments = [];
+      for (var doc in allBitesQuery.docs) {
+        final bite = BiteModel.fromFirestore(doc);
+        final commentCount = await _getCommentCount(bite.id);
+        allBitesWithComments.add(bite.copyWith(commentCount: commentCount));
+        print('DEBUG: Library - Bite ${bite.id} (${bite.title}) has $commentCount comments');
+      }
       
       // FIXED: Sort by dayNumber, newest/highest first (like Instagram/social media)
       // Higher day numbers (Day 5, Day 4, Day 3...) appear at the top
-      allBites.sort((a, b) => b.dayNumber.compareTo(a.dayNumber));
+      allBitesWithComments.sort((a, b) => b.dayNumber.compareTo(a.dayNumber));
       
       setState(() {
-        _allBites = allBites;
+        _allBites = allBitesWithComments;
         _isLoading = false;
       });
       
@@ -104,11 +110,55 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       await _loadFavoriteBites();
       
     } catch (e) {
-      // Removed debug print for performance
+      print('DEBUG: Library - Error loading content: $e');
       setState(() {
         _errorMessage = 'Failed to load content: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<int> _getCommentCount(String biteId) async {
+    try {
+      final commentsSnapshot = await _firestore
+          .collection('comments')
+          .where('biteId', isEqualTo: biteId)
+          .get();
+      return commentsSnapshot.docs.length;
+    } catch (e) {
+      print('DEBUG: Library - Error getting comment count for bite $biteId: $e');
+      return 0;
+    }
+  }
+
+  // Method to refresh comment counts for specific bite (called when returning from comments)
+  Future<void> _refreshBiteCommentCount(String biteId) async {
+    try {
+      final newCommentCount = await _getCommentCount(biteId);
+      print('DEBUG: Library - Refreshing comment count for bite $biteId: $newCommentCount');
+      
+      // Update all bites list
+      final updatedAllBites = _allBites.map((bite) {
+        if (bite.id == biteId) {
+          return bite.copyWith(commentCount: newCommentCount);
+        }
+        return bite;
+      }).toList();
+      
+      // Update favorite bites list if needed
+      final updatedFavoriteBites = _favoriteBites.map((bite) {
+        if (bite.id == biteId) {
+          return bite.copyWith(commentCount: newCommentCount);
+        }
+        return bite;
+      }).toList();
+      
+      setState(() {
+        _allBites = updatedAllBites;
+        _favoriteBites = updatedFavoriteBites;
+      });
+    } catch (e) {
+      print('DEBUG: Library - Error refreshing comment count for bite $biteId: $e');
     }
   }
 
@@ -135,6 +185,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   Future<void> _loadFavoriteBites() async {
     try {
       if (_favoriteIds.isEmpty) {
+        print('DEBUG: Library - No favorite IDs, clearing favorites list');
         setState(() {
           _favoriteBites = [];
         });
@@ -143,6 +194,11 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       
       // Filter all bites to get only favorites
       final favoriteBites = _allBites.where((bite) => _favoriteIds.contains(bite.id)).toList();
+      print('DEBUG: Library - Found ${favoriteBites.length} favorite bites with comment counts');
+      
+      for (var bite in favoriteBites) {
+        print('DEBUG: Library - Favorite bite ${bite.id} (${bite.title}) has ${bite.commentCount} comments');
+      }
       
       // FIXED: Sort favorites by dayNumber, newest/highest first (like Instagram/social media)
       favoriteBites.sort((a, b) => b.dayNumber.compareTo(a.dayNumber));
@@ -151,9 +207,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         _favoriteBites = favoriteBites;
       });
       
-      // Removed debug print for performance
     } catch (e) {
-      // Removed debug print for performance
+      print('DEBUG: Library - Error loading favorite bites: $e');
     }
   }
 
@@ -350,6 +405,35 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                           color: Colors.grey.shade600,
                         ),
                       ),
+                      if (bite.commentCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF56500),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.chat_bubble,
+                                size: 10,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${bite.commentCount}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const Spacer(),
                       // ENHANCED: Show relative date for social media feel
                       Text(
@@ -446,7 +530,18 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Library'),
+        title: const Text(
+          'My Library',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            color: Color(0xFFF56500),
+            letterSpacing: 0.3,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Color(0xFFF56500).withOpacity(0.08),
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFFF56500),

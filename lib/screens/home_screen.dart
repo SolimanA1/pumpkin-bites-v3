@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
 import '../services/subscription_service.dart';
@@ -69,8 +70,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshContent() async {
     if (_isRefreshing) return;
 
-    if (_isRefreshing) return;
-
     setState(() {
       _isRefreshing = true;
     });
@@ -78,6 +77,21 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final todaysBite = await _contentService.getTodaysBite();
       final catchUpBites = await _contentService.getCatchUpBites();
+
+      // Load comment counts for all bites (similar to dinner table)
+      BiteModel? todaysBiteWithComments;
+      if (todaysBite != null) {
+        final todaysCommentCount = await _getCommentCount(todaysBite.id);
+        todaysBiteWithComments = todaysBite.copyWith(commentCount: todaysCommentCount);
+        print('DEBUG: Refresh - Today\'s bite ${todaysBite.id} has $todaysCommentCount comments');
+      }
+
+      List<BiteModel> catchUpBitesWithComments = [];
+      for (var bite in catchUpBites) {
+        final commentCount = await _getCommentCount(bite.id);
+        catchUpBitesWithComments.add(bite.copyWith(commentCount: commentCount));
+        print('DEBUG: Refresh - Bite ${bite.id} (${bite.title}) has $commentCount comments');
+      }
 
       // Simulate sequential release logic
       final now = DateTime.now();
@@ -92,13 +106,14 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       setState(() {
-        _todaysBite = todaysBite;
-        _catchUpBites = catchUpBites;
+        _todaysBite = todaysBiteWithComments;
+        _catchUpBites = catchUpBitesWithComments;
         _isTodaysBiteUnlocked = isUnlocked;
         _nextUnlockTime = nextUnlock;
         _isRefreshing = false;
       });
     } catch (e) {
+      print('DEBUG: Error refreshing content: $e');
       setState(() {
         _isRefreshing = false;
       });
@@ -115,6 +130,21 @@ class _HomeScreenState extends State<HomeScreen> {
       final todaysBite = await _contentService.getTodaysBite();
       final catchUpBites = await _contentService.getCatchUpBites();
 
+      // Load comment counts for all bites (similar to dinner table)
+      BiteModel? todaysBiteWithComments;
+      if (todaysBite != null) {
+        final todaysCommentCount = await _getCommentCount(todaysBite.id);
+        todaysBiteWithComments = todaysBite.copyWith(commentCount: todaysCommentCount);
+        print('DEBUG: Today\'s bite ${todaysBite.id} has $todaysCommentCount comments');
+      }
+
+      List<BiteModel> catchUpBitesWithComments = [];
+      for (var bite in catchUpBites) {
+        final commentCount = await _getCommentCount(bite.id);
+        catchUpBitesWithComments.add(bite.copyWith(commentCount: commentCount));
+        print('DEBUG: Bite ${bite.id} (${bite.title}) has $commentCount comments');
+      }
+
       // Initialize sequential release logic
       final now = DateTime.now();
       final unlockHour = 9; // 9 AM unlock time
@@ -128,17 +158,62 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       setState(() {
-        _todaysBite = todaysBite;
-        _catchUpBites = catchUpBites;
+        _todaysBite = todaysBiteWithComments;
+        _catchUpBites = catchUpBitesWithComments;
         _isTodaysBiteUnlocked = isUnlocked;
         _nextUnlockTime = nextUnlock;
         _isLoading = false;
       });
     } catch (e) {
+      print('DEBUG: Error loading content: $e');
       setState(() {
         _errorMessage = 'Oops! Having trouble fetching today\'s wisdom. Give us a moment to sort this out.';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<int> _getCommentCount(String biteId) async {
+    try {
+      final commentsSnapshot = await FirebaseFirestore.instance
+          .collection('comments')
+          .where('biteId', isEqualTo: biteId)
+          .get();
+      return commentsSnapshot.docs.length;
+    } catch (e) {
+      print('DEBUG: Error getting comment count for bite $biteId: $e');
+      return 0;
+    }
+  }
+
+  // Method to refresh comment counts for specific bite (called when returning from comments)
+  Future<void> _refreshBiteCommentCount(String biteId) async {
+    try {
+      final newCommentCount = await _getCommentCount(biteId);
+      print('DEBUG: Refreshing comment count for bite $biteId: $newCommentCount');
+      
+      // Update today's bite if it matches
+      if (_todaysBite?.id == biteId) {
+        setState(() {
+          _todaysBite = _todaysBite!.copyWith(commentCount: newCommentCount);
+        });
+      }
+      
+      // Update catch-up bites if any match
+      final updatedCatchUpBites = _catchUpBites.map((bite) {
+        if (bite.id == biteId) {
+          return bite.copyWith(commentCount: newCommentCount);
+        }
+        return bite;
+      }).toList();
+      
+      if (updatedCatchUpBites != _catchUpBites) {
+        setState(() {
+          _catchUpBites = updatedCatchUpBites;
+        });
+      }
+    } catch (e) {
+      print('DEBUG: Error refreshing comment count for bite $biteId: $e');
     }
   }
 
@@ -592,6 +667,35 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 12,
                           ),
                         ),
+                        if (bite.commentCount > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF56500),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.chat_bubble,
+                                  size: 10,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${bite.commentCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -633,7 +737,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pumpkin Bites'),
+        title: const Text(
+          'Pumpkin Bites',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
+            color: Color(0xFFF56500),
+            letterSpacing: 0.5,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 2,
+        shadowColor: Color(0xFFF56500).withOpacity(0.1),
         actions: [
           // Notification icon (can be implemented later)
           IconButton(
