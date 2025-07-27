@@ -158,31 +158,31 @@ class _ShareDialogState extends State<ShareDialog> {
     });
     
     try {
-      // Generate a deep link for the bite with snippet information
-      final deepLink = await _generateDeepLink(
-        widget.bite.id, 
-        _startPosition.round(),
-        _snippetDuration.round()
+      // NEW: Use the enhanced sharing service with snippet creation
+      final startTime = Duration(seconds: _startPosition.round());
+      final endTime = Duration(seconds: (_startPosition + _snippetDuration).round());
+      
+      await _shareService.createSnippetAndShare(
+        context,
+        widget.bite,
+        startTime: startTime,
+        endTime: endTime,
+        personalMessage: _commentController.text.trim(),
       );
-      
-      // Create a message to share
-      final message = _createShareMessage(widget.bite, deepLink);
-      
-      // Use the Share.share from share_plus package
-      await Share.share(message, subject: 'Check out this bite from Pumpkin Bites!');
-      
-      // Track the share in analytics
-      await _trackShare(widget.bite.id);
       
       if (mounted) {
         Navigator.of(context).pop(true); // Return success
       }
     } catch (e) {
-      print('Error sharing bite: $e');
+      print('Error sharing snippet: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share content: $e')),
-        );
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not share snippet: $e')),
+          );
+        } catch (scaffoldError) {
+          print('Could not show error snackbar: $scaffoldError');
+        }
         Navigator.of(context).pop(false); // Return failure
       }
     } finally {
@@ -207,6 +207,7 @@ class _ShareDialogState extends State<ShareDialog> {
         widget.bite,
         personalComment: _commentController.text.trim(),
         snippetDuration: _snippetDuration.round(),
+        startPosition: Duration(seconds: _startPosition.round()),
       );
       
       if (mounted) {
@@ -215,9 +216,13 @@ class _ShareDialogState extends State<ShareDialog> {
     } catch (e) {
       print('Error sharing to Instagram Stories: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share to Instagram Stories: $e')),
-        );
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not share to Instagram Stories: $e')),
+          );
+        } catch (scaffoldError) {
+          print('Could not show error snackbar: $scaffoldError');
+        }
       }
     } finally {
       if (mounted) {
@@ -282,12 +287,17 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
     });
     
     // Show a snackbar notification
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Playing ${_snippetDuration.round()} second preview...'),
-        duration: playDuration,
-      ),
-    );
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Playing ${_snippetDuration.round()} second preview...'),
+          duration: playDuration,
+        ),
+      );
+    } catch (e) {
+      print('Could not show preview snackbar: $e');
+      print('Playing ${_snippetDuration.round()} second preview...');
+    }
   }
   
   @override

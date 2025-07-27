@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'test_bite_creator.dart';
+import 'snippet_debug_screen.dart';
 
 class DiagnosticScreen extends StatefulWidget {
   const DiagnosticScreen({Key? key}) : super(key: key);
@@ -114,6 +115,27 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                       backgroundColor: Colors.green,
                     ),
                     child: const Text('Check Audio'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const SnippetDebugScreen(),
+                      ));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                    ),
+                    icon: const Icon(Icons.bug_report),
+                    label: const Text('Debug Snippet Creation'),
                   ),
                 ),
               ],

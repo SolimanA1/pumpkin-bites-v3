@@ -18,41 +18,63 @@ class InstagramStoryGenerator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Screenshot(
-      controller: screenshotController,
-      child: AspectRatio(
-        aspectRatio: 9.0 / 16.0, // Instagram Story aspect ratio
-        child: Container(
-          width: 1080, // Instagram story width
-          height: 1920, // Instagram story height
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFFF56500), // Pumpkin orange
-                const Color(0xFFFF8C42), // Lighter orange
-                const Color(0xFFFFB366), // Even lighter
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(40.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Top section - App branding
-                  _buildTopSection(),
-                  
-                  // Middle section - Bite content
-                  Expanded(
-                    child: _buildMiddleSection(),
+    print('DEBUG: Building InstagramStoryGenerator widget');
+    return MediaQuery(
+      data: const MediaQueryData(
+        size: Size(1080, 1920),
+        devicePixelRatio: 2.0,
+        textScaler: TextScaler.linear(1.0),
+        platformBrightness: Brightness.light,
+        padding: EdgeInsets.zero,
+        viewInsets: EdgeInsets.zero,
+        viewPadding: EdgeInsets.zero,
+        alwaysUse24HourFormat: false,
+        accessibleNavigation: false,
+        invertColors: false,
+        highContrast: false,
+        disableAnimations: false,
+        boldText: false,
+      ),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Screenshot(
+          controller: screenshotController,
+          child: ClipRRect(
+            borderRadius: BorderRadius.zero,
+            child: Container(
+              width: 1080, // Instagram story width
+              height: 1920, // Instagram story height
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF56500), // Pumpkin orange
+                    Color(0xFFFF8C42), // Lighter orange
+                    Color(0xFFFFB366), // Even lighter
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(40.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Top section - App branding
+                      _buildTopSection(),
+                      
+                      // Middle section - Bite content
+                      Expanded(
+                        child: _buildMiddleSection(),
+                      ),
+                      
+                      // Bottom section - Call to action
+                      _buildBottomSection(),
+                    ],
                   ),
-                  
-                  // Bottom section - Call to action
-                  _buildBottomSection(),
-                ],
+                ),
               ),
             ),
           ),
@@ -103,7 +125,7 @@ class InstagramStoryGenerator extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Bite title
+        // Bite thumbnail and title
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -119,6 +141,21 @@ class InstagramStoryGenerator extends StatelessWidget {
           ),
           child: Column(
             children: [
+              // Bite thumbnail placeholder (simplified for screenshot)
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF56500).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.music_note,
+                  color: Color(0xFFF56500),
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 bite.title,
                 style: const TextStyle(
@@ -128,6 +165,8 @@ class InstagramStoryGenerator extends StatelessWidget {
                   height: 1.3,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 16),
               Container(
@@ -146,24 +185,65 @@ class InstagramStoryGenerator extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.play_circle_filled,
-                    color: Color(0xFFF56500),
-                    size: 24,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${snippetDuration}s snippet',
-                    style: const TextStyle(
-                      color: Color(0xFF666666),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+              // Audio waveform visualization
+              Container(
+                height: 60,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.graphic_eq,
+                      color: Color(0xFFF56500),
+                      size: 28,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF56500).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(20, (index) => 
+                              Container(
+                                width: 3,
+                                height: (15 + (index % 4) * 8).toDouble(),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF56500),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.timer,
+                          color: Color(0xFFF56500),
+                          size: 20,
+                        ),
+                        Text(
+                          '${snippetDuration}s',
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -207,6 +287,8 @@ class InstagramStoryGenerator extends StatelessWidget {
                     height: 1.4,
                   ),
                   textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
