@@ -43,6 +43,7 @@ dependencies:
   shared_preferences: ^2.1.1
   url_launcher: ^6.1.11
   uuid: ^3.0.7
+  http: ^1.1.0
   
   # Image Generation
   screenshot: ^3.0.0

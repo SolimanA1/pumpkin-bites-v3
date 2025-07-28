@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
 import '../models/bite_model.dart';
 
 // Custom exceptions for better error handling
@@ -690,15 +692,22 @@ class SnippetService {
     }
   }
 
-  /// Call the createSnippet Firebase Function with comprehensive logging
+  /// Call the createSnippet Firebase Function with HTTP request (FIXED)
   Future<Map<String, dynamic>> _callCreateSnippetFunction({
     required BiteModel bite,
     required String snippetAudioUrl,
     required Duration startTime,
     required Duration endTime,
   }) async {
-    print('SnippetService: Starting Firebase Function call');
-    print('SnippetService: Function name: createSnippet');
+    print('🔍 DEBUG: Starting HTTP Firebase Function call (FIXED METHOD)');
+    print('🔍 DEBUG: Using direct HTTP POST instead of Firebase Callable');
+    
+    // CRITICAL URL COMPARISON LOGGING
+    print('🔍 DEBUG: snippetAudioUrl being sent to function: "$snippetAudioUrl"');
+    print('🔍 DEBUG: Original bite.audioUrl: "${bite.audioUrl}"');
+    print('🔍 DEBUG: snippetAudioUrl == bite.audioUrl: ${snippetAudioUrl == bite.audioUrl}');
+    print('🔍 DEBUG: snippetAudioUrl length: ${snippetAudioUrl.length}');
+    print('🔍 DEBUG: bite.audioUrl length: ${bite.audioUrl.length}');
     
     try {
       // Step 1: Prepare function data with correct parameter names
@@ -706,26 +715,24 @@ class SnippetService {
         'biteId': bite.id,
         'title': bite.title,
         'category': bite.category,
-        'audioUrl': snippetAudioUrl, // FIXED: Use audioUrl as expected by Firebase Function
+        'audioUrl': snippetAudioUrl, // This will now reach the function correctly
         'startTime': startTime.inSeconds,
         'endTime': endTime.inSeconds,
         'duration': '0:${(endTime - startTime).inSeconds}',
         'authorName': bite.authorName,
         'description': bite.description,
         'thumbnailUrl': bite.thumbnailUrl,
-        'processingMode': 'server-side', // Flag to indicate server-side audio processing
       };
       
-      // Step 1.5: Validate critical parameters before sending
-      print('SnippetService: Validating function parameters...');
+      // Step 2: Validate critical parameters before sending
+      print('🔍 DEBUG: Validating function parameters for HTTP request...');
       
-      // Critical validation for audioUrl
       final audioUrl = functionData['audioUrl'] as String;
-      print('SnippetService: audioUrl validation:');
-      print('SnippetService:   - audioUrl: "$audioUrl"');
-      print('SnippetService:   - audioUrl.isEmpty: ${audioUrl.isEmpty}');
-      print('SnippetService:   - audioUrl.length: ${audioUrl.length}');
-      print('SnippetService:   - audioUrl.startsWith("http"): ${audioUrl.startsWith("http")}');
+      print('🔍 DEBUG: audioUrl validation for HTTP:');
+      print('🔍 DEBUG:   - audioUrl: "$audioUrl"');
+      print('🔍 DEBUG:   - audioUrl.isEmpty: ${audioUrl.isEmpty}');
+      print('🔍 DEBUG:   - audioUrl.length: ${audioUrl.length}');
+      print('🔍 DEBUG:   - audioUrl.startsWith("http"): ${audioUrl.startsWith("http")}');
       
       if (audioUrl.isEmpty) {
         throw FunctionCallException('audioUrl parameter is empty - cannot process snippet without audio source');
@@ -735,112 +742,56 @@ class SnippetService {
         throw FunctionCallException('audioUrl parameter is invalid - must be a valid HTTP/HTTPS URL: "$audioUrl"');
       }
       
-      print('SnippetService: ✅ audioUrl validation passed');
+      print('🔍 DEBUG: ✅ audioUrl validation passed for HTTP request');
       
-      print('SnippetService: All function parameters:');
+      print('🔍 DEBUG: All HTTP function parameters:');
       functionData.forEach((key, value) {
-        print('SnippetService:   $key: $value');
+        print('🔍 DEBUG:   $key: $value');
       });
       
-      // Step 2: Verify Firebase Functions configuration
-      print('SnippetService: Verifying Firebase Functions configuration...');
-      try {
-        print('SnippetService: Functions instance configured for us-central1 region');
-        print('SnippetService: Functions instance: ${_functions.runtimeType}');
-        print('SnippetService: Project ID: pumpkin-bites-jvouko');
-        print('SnippetService: Region: us-central1');
-        print('SnippetService: Function name: createSnippet');
-        
-        // Verify region-specific instance
-        final regionInstance = FirebaseFunctions.instanceFor(region: 'us-central1');
-        print('SnippetService: Region-specific instance created: ${regionInstance.runtimeType}');
-      } catch (e) {
-        print('SnippetService: Error accessing functions configuration: $e');
-        throw FunctionCallException('Firebase Functions not properly configured: ${e.toString()}');
-      }
+      // Step 3: Make HTTP POST request to the function
+      print('🔍 DEBUG: Sending HTTP POST to createSnippet function');
+      print('🔍 DEBUG: Function URL: https://us-central1-pumpkin-bites-jvouko.cloudfunctions.net/createSnippet');
       
-      // Step 3: Create callable reference with enhanced error handling
-      print('SnippetService: Creating callable reference...');
-      HttpsCallable? callable;
-      try {
-        // Try region-specific instance first
-        callable = _functions.httpsCallable('createSnippet');
-        print('SnippetService: ✅ Regional callable created successfully');
-      } catch (e) {
-        print('SnippetService: ❌ Regional callable failed: $e');
-        try {
-          // Fallback to default instance
-          callable = FirebaseFunctions.instance.httpsCallable('createSnippet');
-          print('SnippetService: ✅ Default callable created as fallback');
-        } catch (e2) {
-          print('SnippetService: ❌ Default callable also failed: $e2');
-          throw FunctionCallException('Cannot create Firebase Functions callable: $e2');
-        }
-      }
-      
-      // Step 4: Test minimal function call first
-      print('SnippetService: Testing minimal function call...');
-      try {
-        final testResult = await callable.call({'test': true}).timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {
-            throw FunctionCallException('Minimal function test timed out after 30 seconds');
-          },
-        );
-        print('SnippetService: ✅ Minimal function call successful: $testResult');
-      } catch (e) {
-        print('SnippetService: ❌ Minimal function call failed: $e');
-        print('SnippetService: Error type: ${e.runtimeType}');
-        
-        // Check specific error types
-        if (e.toString().contains('UNAUTHENTICATED')) {
-          throw FunctionCallException('Authentication failed - please log in again');
-        } else if (e.toString().contains('NOT_FOUND')) {
-          throw FunctionCallException('Function createSnippet not found - check deployment');
-        } else if (e.toString().contains('PERMISSION_DENIED')) {
-          throw FunctionCallException('Permission denied - check Firebase rules');
-        } else if (e.toString().contains('UNAVAILABLE')) {
-          throw FunctionCallException('Firebase Functions service unavailable');
-        } else {
-          throw FunctionCallException('Function call failed: ${e.toString()}');
-        }
-      }
-      
-      // Step 5: Call actual function with increased timeout for server-side audio processing
-      print('SnippetService: Calling createSnippet function with 3-minute timeout...');
-      final result = await callable.call(functionData).timeout(
-        const Duration(minutes: 3),
-        onTimeout: () {
-          throw FunctionCallException('createSnippet function call timed out after 3 minutes');
+      final response = await http.post(
+        Uri.parse('https://us-central1-pumpkin-bites-jvouko.cloudfunctions.net/createSnippet'),
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: json.encode(functionData),
+      ).timeout(const Duration(minutes: 3));
       
-      print('SnippetService: Function call completed');
-      print('SnippetService: Raw result type: ${result.runtimeType}');
-      print('SnippetService: Raw result: $result');
+      print('🔍 DEBUG: HTTP response received');
+      print('🔍 DEBUG: HTTP response status: ${response.statusCode}');
+      print('🔍 DEBUG: HTTP response headers: ${response.headers}');
+      print('🔍 DEBUG: HTTP response body length: ${response.body.length}');
+      print('🔍 DEBUG: HTTP response body: ${response.body}');
       
-      // Step 5: Extract and validate response data
-      if (result.data == null) {
-        throw FunctionCallException('Firebase Function returned null data');
+      if (response.statusCode != 200) {
+        print('🚨 DEBUG: HTTP request failed with status ${response.statusCode}');
+        throw FunctionCallException('HTTP ${response.statusCode}: ${response.body}');
       }
       
-      final data = result.data as Map<String, dynamic>;
-      print('SnippetService: Function response data:');
+      // Step 4: Parse JSON response
+      print('🔍 DEBUG: Parsing JSON response...');
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      
+      print('🔍 DEBUG: Parsed response data:');
       data.forEach((key, value) {
-        print('SnippetService:   $key: $value');
+        print('🔍 DEBUG:   $key: $value');
       });
       
-      // Step 6: Check function execution success
+      // Step 5: Check function execution success
       if (data['success'] != true) {
         final errorMessage = data['error'] ?? 'Unknown error';
         final errorCode = data['code'] ?? 'UNKNOWN_ERROR';
-        print('SnippetService: Function execution failed');
-        print('SnippetService: Error message: $errorMessage');
-        print('SnippetService: Error code: $errorCode');
-        throw FunctionCallException('Firebase Function failed [$errorCode]: $errorMessage');
+        print('🚨 DEBUG: Function execution failed');
+        print('🚨 DEBUG: Error message: $errorMessage');
+        print('🚨 DEBUG: Error code: $errorCode');
+        throw FunctionCallException('Function failed [$errorCode]: $errorMessage');
       }
       
-      // Step 7: Validate required response fields
+      // Step 6: Validate required response fields
       final requiredFields = ['url', 'snippetId'];
       for (final field in requiredFields) {
         if (!data.containsKey(field) || data[field] == null) {
@@ -851,46 +802,25 @@ class SnippetService {
       final snippetUrl = data['url'] as String;
       final snippetId = data['snippetId'] as String;
       
-      print('SnippetService: Function execution successful');
-      print('SnippetService: Generated snippet ID: $snippetId');
-      print('SnippetService: Generated snippet URL: $snippetUrl');
+      print('🔍 DEBUG: HTTP Function execution successful');
+      print('🔍 DEBUG: Generated snippet ID: $snippetId');
+      print('🔍 DEBUG: Generated snippet URL: $snippetUrl');
       
-      // Step 8: Validate URL format
+      // Step 7: Validate URL format
       if (!snippetUrl.startsWith('https://pumpkinbites.com/snippet/')) {
-        print('SnippetService: Warning - Unexpected URL format: $snippetUrl');
+        print('🔍 DEBUG: Warning - Unexpected URL format: $snippetUrl');
       }
       
       return data;
       
     } catch (e) {
-      print('SnippetService: Firebase Function call failed with error: $e');
-      print('SnippetService: Error type: ${e.runtimeType}');
+      print('🚨 DEBUG: HTTP Firebase Function call failed with error: $e');
+      print('🚨 DEBUG: Error type: ${e.runtimeType}');
       
       if (e is FunctionCallException) {
         rethrow;
-      } else if (e is FirebaseFunctionsException) {
-        print('SnippetService: Firebase Functions error code: ${e.code}');
-        print('SnippetService: Firebase Functions error message: ${e.message}');
-        print('SnippetService: Firebase Functions error details: ${e.details}');
-        
-        // Enhanced logging for INTERNAL errors
-        if (e.code == 'internal') {
-          print('=== INTERNAL ERROR DETECTED ===');
-          print('SnippetService: INTERNAL error indicates the function crashed during execution');
-          print('SnippetService: This means the function started but failed internally');
-          print('SnippetService: Common causes:');
-          print('SnippetService:   - Function timeout (default 60s, may need 540s for audio processing)');
-          print('SnippetService:   - Out of memory (default 256MB, may need 1GB+ for audio)');
-          print('SnippetService:   - Unhandled exception in function code');
-          print('SnippetService:   - Missing dependencies (FFmpeg, etc.)');
-          print('SnippetService:   - Invalid audio URL or processing failure');
-          printFirebaseConsoleUrls();
-          print('=== END INTERNAL ERROR INFO ===');
-        }
-        
-        throw FunctionCallException('Firebase Functions error [${e.code}]: ${e.message}');
       } else {
-        throw FunctionCallException('Unexpected error during function call: ${e.toString()}');
+        throw FunctionCallException('HTTP request failed: ${e.toString()}');
       }
     }
   }
