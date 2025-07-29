@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pumpkin_bites_new/screens/auth/login_screen.dart';
 import 'package:pumpkin_bites_new/screens/home_screen.dart';
@@ -254,16 +255,36 @@ class OnboardingWrapper extends StatelessWidget {
 
   Future<Map<String, bool>> _checkStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+      print('🎯 DEBUG: OnboardingWrapper - Checking user-specific onboarding status...');
       
-      // Start free trial if onboarding is completed and trial hasn't started yet
-      if (hasCompletedOnboarding) {
-        final subscriptionService = SubscriptionService();
-        if (subscriptionService.trialEndDate == null && !subscriptionService.isSubscriptionActive) {
-          await subscriptionService.startFreeTrial();
-        }
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('🎯 DEBUG: OnboardingWrapper - No authenticated user, showing onboarding');
+        return {'hasCompletedOnboarding': false};
       }
+      
+      // Check user-specific onboarding status from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+          
+      bool hasCompletedOnboarding = false;
+      if (userDoc.exists && userDoc.data() != null) {
+        hasCompletedOnboarding = userDoc.data()!['hasCompletedOnboarding'] ?? false;
+      }
+      
+      print('🎯 DEBUG: OnboardingWrapper - User ${user.uid} hasCompletedOnboarding: $hasCompletedOnboarding');
+      
+      // Initialize subscription service to load user-specific trial state
+      final subscriptionService = SubscriptionService();
+      await subscriptionService.initialize();
+      
+      print('🎯 DEBUG: OnboardingWrapper - Trial end date: ${subscriptionService.trialEndDate}');
+      print('🎯 DEBUG: OnboardingWrapper - Is subscription active: ${subscriptionService.isSubscriptionActive}');
+      print('🎯 DEBUG: OnboardingWrapper - Is in trial period: ${subscriptionService.isInTrialPeriod}');
+      print('🎯 DEBUG: OnboardingWrapper - Trial days remaining: ${subscriptionService.trialDaysRemaining}');
       
       return {
         'hasCompletedOnboarding': hasCompletedOnboarding,
@@ -292,9 +313,13 @@ class OnboardingWrapper extends StatelessWidget {
         final status = snapshot.data ?? {'hasCompletedOnboarding': false};
         final hasCompletedOnboarding = status['hasCompletedOnboarding'] ?? false;
         
+        print('DEBUG: OnboardingWrapper.build - hasCompletedOnboarding: $hasCompletedOnboarding');
+        
         if (hasCompletedOnboarding) {
+          print('DEBUG: OnboardingWrapper.build - Showing SubscriptionWrapper');
           return const SubscriptionWrapper();
         } else {
+          print('DEBUG: OnboardingWrapper.build - Showing OnboardingScreen');
           return const OnboardingScreen();
         }
       },

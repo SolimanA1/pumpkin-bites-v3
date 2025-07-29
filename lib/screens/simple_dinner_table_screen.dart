@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/bite_model.dart';
+import '../services/content_service.dart';
 import 'comment_detail_screen.dart';
 
 class SimpleReelDinnerTableScreen extends StatefulWidget {
@@ -12,13 +13,10 @@ class SimpleReelDinnerTableScreen extends StatefulWidget {
 }
 
 class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScreen> {
+  final ContentService _contentService = ContentService();
   List<BiteModel> _bitesWithComments = [];
-  List<BiteModel> _allBites = []; // Cache all bites for pagination
   bool _isLoading = true;
-  bool _isLoadingMore = false;
   String _errorMessage = '';
-  int _currentPage = 0;
-  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -27,39 +25,26 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
   }
 
   Future<void> _loadBitesWithComments() async {
-    final stopwatch = Stopwatch()..start();
     try {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
-        _currentPage = 0;
       });
 
-      print('PERF: DinnerTable - Starting optimized load...');
+      print('DEBUG: DinnerTable - Loading sequential bites with comments...');
 
-      // Get all bites first (fast query)
-      final bitesQueryStopwatch = Stopwatch()..start();
-      final bitesSnapshot = await FirebaseFirestore.instance
-          .collection('bites')
-          .get();
-      bitesQueryStopwatch.stop();
-      print('PERF: DinnerTable - Bites query took ${bitesQueryStopwatch.elapsedMilliseconds}ms, found ${bitesSnapshot.docs.length} bites');
-
-      // Cache all bites
-      _allBites = bitesSnapshot.docs.map((doc) => BiteModel.fromFirestore(doc)).toList();
-
-      // Load first page immediately for fast UI response
-      await _loadPage(0, showFirstPageFast: true);
+      // Get user's sequential bites that have comments (CRITICAL FIX)
+      final bitesWithComments = await _contentService.getUserSequentialBitesWithComments();
       
-      stopwatch.stop();
-      print('PERF: DinnerTable - Fast initial load took ${stopwatch.elapsedMilliseconds}ms');
+      setState(() {
+        _bitesWithComments = bitesWithComments;
+        _isLoading = false;
+      });
       
-      // Continue loading more pages in background
-      _loadRemainingPagesInBackground();
+      print('DEBUG: DinnerTable - Loaded ${bitesWithComments.length} bites with comments');
       
     } catch (e) {
-      stopwatch.stop();
-      print('PERF: DinnerTable - FAILED after ${stopwatch.elapsedMilliseconds}ms: $e');
+      print('DEBUG: DinnerTable - Error loading: $e');
       setState(() {
         _errorMessage = 'Failed to load discussions: $e';
         _isLoading = false;
@@ -67,58 +52,6 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
     }
   }
 
-  Future<void> _loadPage(int page, {bool showFirstPageFast = false}) async {
-    final pageStopwatch = Stopwatch()..start();
-    
-    final startIndex = page * _pageSize;
-    final endIndex = (startIndex + _pageSize).clamp(0, _allBites.length);
-    
-    if (startIndex >= _allBites.length) return;
-    
-    final pageBites = _allBites.sublist(startIndex, endIndex);
-    List<BiteModel> pageBitesWithComments = [];
-
-    // Load comment counts for this page
-    for (var bite in pageBites) {
-      final commentsSnapshot = await FirebaseFirestore.instance
-          .collection('comments')
-          .where('biteId', isEqualTo: bite.id)
-          .get();
-      
-      final commentCount = commentsSnapshot.docs.length;
-      
-      if (commentCount > 0) {
-        pageBitesWithComments.add(bite.copyWith(commentCount: commentCount));
-      }
-    }
-    
-    pageStopwatch.stop();
-    print('PERF: DinnerTable - Page $page loaded in ${pageStopwatch.elapsedMilliseconds}ms, found ${pageBitesWithComments.length} bites with comments');
-
-    setState(() {
-      if (page == 0) {
-        _bitesWithComments = pageBitesWithComments;
-        _isLoading = false;
-      } else {
-        _bitesWithComments.addAll(pageBitesWithComments);
-      }
-      _currentPage = page;
-      _isLoadingMore = false;
-    });
-
-    // Sort the entire list after each page
-    _bitesWithComments.sort((a, b) => b.commentCount.compareTo(a.commentCount));
-  }
-
-  Future<void> _loadRemainingPagesInBackground() async {
-    final totalPages = (_allBites.length / _pageSize).ceil();
-    
-    for (int page = 1; page < totalPages; page++) {
-      // Add small delay to not overwhelm Firestore
-      await Future.delayed(const Duration(milliseconds: 100));
-      await _loadPage(page);
-    }
-  }
 
   void _navigateToCommentDetail(BiteModel bite) async {
     await Navigator.push(
@@ -132,6 +65,9 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
   }
 
   void _playBite(BiteModel bite) {
+    // Mark bite as opened when user navigates to player (CRITICAL FIX for Fresh Bites)
+    _contentService.markBiteAsOpened(bite.id);
+    
     Navigator.pushNamed(context, '/player', arguments: bite);
   }
 
@@ -261,15 +197,6 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    bite.description,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 14,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -281,13 +208,7 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
                           fontSize: 12,
                         ),
                       ),
-                      Text(
-                        'By ${bite.authorName}',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
+                      Container(),
                     ],
                   ),
                 ],
@@ -350,7 +271,9 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
         shadowColor: const Color(0xFFF56500).withOpacity(0.08),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(
+              color: Color(0xFFF56500),
+            ))
           : _errorMessage.isNotEmpty
               ? _buildErrorView()
               : _bitesWithComments.isEmpty

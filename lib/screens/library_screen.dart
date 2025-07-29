@@ -76,12 +76,12 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         _errorMessage = '';
       });
 
-      print('DEBUG: Library - Loading content...');
+      print('DEBUG: Library - Loading sequential content for user...');
       
-      // Get all bites to ensure we have content
-      final allBitesQuery = await _firestore.collection('bites').get();
+      // Get bites available to user based on their progression (CRITICAL FIX)
+      final allBitesWithComments = await _contentService.getUserSequentialBites();
       
-      if (allBitesQuery.docs.isEmpty) {
+      if (allBitesWithComments.isEmpty) {
         setState(() {
           _allBites = [];
           _favoriteBites = [];
@@ -90,19 +90,6 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         });
         return;
       }
-      
-      // Parse all bites and load comment counts
-      List<BiteModel> allBitesWithComments = [];
-      for (var doc in allBitesQuery.docs) {
-        final bite = BiteModel.fromFirestore(doc);
-        final commentCount = await _getCommentCount(bite.id);
-        allBitesWithComments.add(bite.copyWith(commentCount: commentCount));
-        print('DEBUG: Library - Bite ${bite.id} (${bite.title}) has $commentCount comments');
-      }
-      
-      // FIXED: Sort by dayNumber, newest/highest first (like Instagram/social media)
-      // Higher day numbers (Day 5, Day 4, Day 3...) appear at the top
-      allBitesWithComments.sort((a, b) => b.dayNumber.compareTo(a.dayNumber));
       
       setState(() {
         _allBites = allBitesWithComments;
@@ -259,6 +246,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   void _playBite(BiteModel bite) {
+    // Mark bite as opened when user navigates to player (CRITICAL FIX for Fresh Bites)
+    _contentService.markBiteAsOpened(bite.id);
+    
     Navigator.of(context).pushNamed('/player', arguments: bite);
   }
 
@@ -399,15 +389,6 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    bite.description,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 14,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -454,14 +435,6 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         ),
                       ],
                       const Spacer(),
-                      // ENHANCED: Show relative date for social media feel
-                      Text(
-                        _getRelativeDate(bite.date),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
                     ],
                   ),
                 ],

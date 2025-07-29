@@ -24,27 +24,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _completeOnboarding() async {
     try {
+      print('🎉 DEBUG: Completing onboarding...');
+      
       setState(() {
         _isSettingTime = true;
       });
 
       // Save unlock time to user preferences
       final user = FirebaseAuth.instance.currentUser;
+      print('🎉 DEBUG: Current user: ${user?.uid}');
+      
       if (user != null) {
+        print('🎉 DEBUG: Updating user document with onboarding completion...');
         await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
           'unlockHour': _selectedUnlockTime.hour,
           'unlockMinute': _selectedUnlockTime.minute,
           'hasCompletedOnboarding': true,
         });
+        print('🎉 DEBUG: User document updated successfully - hasCompletedOnboarding set to true for user ${user.uid}');
+        
+        // Verify it was saved by reading back
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final verified = userDoc.data()?['hasCompletedOnboarding'] ?? false;
+        print('🎉 DEBUG: Verified hasCompletedOnboarding in Firestore: $verified');
+      } else {
+        print('🚨 DEBUG: No authenticated user found during onboarding completion!');
+        return; // Cannot complete onboarding without user
       }
 
-      // Mark onboarding as completed
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('hasCompletedOnboarding', true);
+      // REMOVED: No longer using SharedPreferences for onboarding flag
+      // All onboarding state is now user-specific in Firestore
 
-      // Navigate to main app
+      // Trigger app state refresh by navigating back to root
+      print('🎉 DEBUG: Navigating to root to refresh app state...');
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       }
     } catch (e) {
       print('Error completing onboarding: $e');

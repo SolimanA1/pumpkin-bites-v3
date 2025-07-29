@@ -43,6 +43,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // Reaction system with descriptions - ENHANCED!
   bool _isSavingReaction = false;
   String _selectedReaction = '';
+  Map<String, int> _reactionCounts = {};
   final Map<String, String> _reactionOptions = {
     '🤔': 'Made me think',
     '🔥': 'Game changer', 
@@ -63,6 +64,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _initPlayer();
     _loadUserReaction();
     _checkIfFavorite();
+    _loadReactionCounts();
     
     // Set a timeout to exit loading state even if something goes wrong
     _loadingTimeoutTimer = Timer(const Duration(seconds: 3), () {
@@ -141,6 +143,61 @@ class _PlayerScreenState extends State<PlayerScreen> {
       print('Error loading user reaction: $e');
     }
   }
+
+  Future<void> _loadReactionCounts() async {
+    try {
+      print('😀 DEBUG: Loading reaction counts for bite: ${widget.bite.id}');
+      
+      final reactionCounts = <String, int>{
+        '🤔': 0, '🔥': 0, '💡': 0, '📝': 0
+      };
+      
+      // Get all users and check their reactions for this bite
+      // Since reactions are stored as users/{userId}/reactions/{biteId}
+      // where biteId is the document ID, we need to iterate through users
+      final usersSnapshot = await _firestore.collection('users').get();
+      print('😀 DEBUG: Found ${usersSnapshot.docs.length} users to check for reactions');
+      
+      for (final userDoc in usersSnapshot.docs) {
+        try {
+          final reactionDoc = await userDoc.reference
+              .collection('reactions')
+              .doc(widget.bite.id) // Document ID is the biteId
+              .get();
+          
+          if (reactionDoc.exists) {
+            final reactionData = reactionDoc.data();
+            final reaction = reactionData?['reaction'] as String?;
+            print('😀 DEBUG: User ${userDoc.id} reacted with: $reaction');
+            
+            if (reaction != null && reactionCounts.containsKey(reaction)) {
+              reactionCounts[reaction] = reactionCounts[reaction]! + 1;
+              print('😀 DEBUG: Updated count for $reaction: ${reactionCounts[reaction]}');
+            }
+          }
+        } catch (e) {
+          print('😀 DEBUG: Error checking reactions for user ${userDoc.id}: $e');
+          // Continue to next user
+        }
+      }
+      
+      print('😀 DEBUG: Final reaction counts for bite ${widget.bite.id}: $reactionCounts');
+      
+      if (mounted) {
+        setState(() {
+          _reactionCounts = reactionCounts;
+        });
+      }
+    } catch (e) {
+      print('😀 DEBUG: Error loading reaction counts: $e');
+      // Initialize empty counts on error
+      if (mounted) {
+        setState(() {
+          _reactionCounts = {'🤔': 0, '🔥': 0, '💡': 0, '📝': 0};
+        });
+      }
+    }
+  }
   
   Future<void> _checkIfFavorite() async {
     try {
@@ -170,17 +227,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_isSavingReaction) return;
     
     try {
+      print('💾 DEBUG: Saving reaction "$reaction" for bite: ${widget.bite.id}');
+      
       setState(() {
         _isSavingReaction = true;
       });
       
       final user = _auth.currentUser;
       if (user == null) {
+        print('💾 DEBUG: No user logged in, cannot save reaction');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You must be logged in to react')),
         );
         return;
       }
+      
+      print('💾 DEBUG: User ${user.uid} saving reaction to path: users/${user.uid}/reactions/${widget.bite.id}');
       
       // Save reaction to Firestore
       await _firestore
@@ -190,14 +252,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
           .doc(widget.bite.id)
           .set({
         'reaction': reaction,
+        'biteId': widget.bite.id, // CRITICAL: Add biteId field for collection group queries
         'timestamp': FieldValue.serverTimestamp(),
         'biteTitle': widget.bite.title,
       });
+      
+      print('💾 DEBUG: Reaction saved successfully');
       
       setState(() {
         _selectedReaction = reaction;
         _isSavingReaction = false;
       });
+      
+      // Refresh reaction counts
+      print('💾 DEBUG: Refreshing reaction counts after save...');
+      _loadReactionCounts();
       
       final reactionName = _reactionOptions[reaction] ?? reaction;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -702,50 +771,86 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   final description = entry.value;
                   final isSelected = _selectedReaction == emoji;
                   
+                  final reactionCount = _reactionCounts[emoji] ?? 0;
+                  
                   return Container(
                     width: 70, // Fixed equal width
                     height: 70, // Fixed equal height
                     margin: const EdgeInsets.symmetric(horizontal: 6),
-                    child: InkWell(
-                      onTap: () => _saveReaction(emoji),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        decoration: BoxDecoration(
+                    child: Stack(
+                      children: [
+                        InkWell(
+                          onTap: () => _saveReaction(emoji),
                           borderRadius: BorderRadius.circular(10),
-                          color: isSelected
-                              ? const Color(0xFFF56500).withValues(alpha: 0.1)
-                              : Colors.grey.shade100,
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFFF56500)
-                                : Colors.grey.shade300,
-                            width: isSelected ? 2 : 1,
+                          child: Container(
+                            width: double.infinity,
+                            height: double.infinity,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              color: isSelected
+                                  ? const Color(0xFFF56500).withValues(alpha: 0.1)
+                                  : Colors.grey.shade100,
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFFF56500)
+                                    : Colors.grey.shade300,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  description,
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected 
+                                        ? const Color(0xFFF56500) 
+                                        : Colors.grey.shade700,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              emoji,
-                              style: const TextStyle(fontSize: 20),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              description,
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected 
-                                    ? const Color(0xFFF56500) 
-                                    : Colors.grey.shade700,
+                        // Reaction counter - only show when count > 0
+                        if (reactionCount > 0)
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF56500),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              child: Text(
+                                reactionCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
                   );
                 }).toList(),

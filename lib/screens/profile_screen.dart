@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/auth_service.dart';
 import '../services/subscription_service.dart';
+import '../services/content_service.dart';
 import '../models/user_model.dart';
 import '../screens/subscription_screen.dart';
 
@@ -77,8 +78,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final userData = userDoc.data()!;
       
-      // Get listened bites count
-      final listenedBites = userData['listenedBites'] as List<dynamic>? ?? [];
+      // Get listened bites count (this should be stories discovered - user's sequential content)
+      // Use ContentService to get user's available sequential bites for accurate count
+      final contentService = ContentService();
+      final availableBites = await contentService.getUserSequentialBites();
       
       // Get favorites count
       final favorites = userData['favorites'] as List<dynamic>? ?? [];
@@ -90,7 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final streak = await _calculateStreak(user.uid);
 
       setState(() {
-        _totalListened = listenedBites.length;
+        _totalListened = availableBites.length; // Stories discovered = total available to user
         _totalFavorites = favorites.length;
         _totalShares = shares;
         _streakDays = streak;
@@ -874,42 +877,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatItem(
-                          icon: Icons.headphones,
-                          value: _totalListened.toString(),
-                          label: 'Bites Listened',
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildStatItem(
-                          icon: Icons.favorite,
-                          value: _totalFavorites.toString(),
-                          label: 'Favorites',
-                        ),
-                      ),
-                    ],
+                  _buildSimpleStatItem(
+                    emoji: '🎧',
+                    value: _totalListened.toString(),
+                    label: 'stories discovered',
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatItem(
-                          icon: Icons.share,
-                          value: _totalShares.toString(),
-                          label: 'Shared',
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildStatItem(
-                          icon: Icons.local_fire_department,
-                          value: _streakDays.toString(),
-                          label: 'Day Streak',
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  _buildSimpleStatItem(
+                    emoji: '❤️',
+                    value: _totalFavorites.toString(),
+                    label: 'favorites saved',
                   ),
                 ],
               ),
@@ -930,13 +907,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _showNotificationSettings,
             ),
             _buildSubscriptionMenuItem(),
-            _buildMenuItem(
-              icon: Icons.share,
-              title: 'Share History',
-              onTap: () {
-                Navigator.pushNamed(context, '/share_history');
-              },
-            ),
             _buildMenuItem(
               icon: Icons.help,
               title: 'Help & Support',
@@ -1039,6 +1009,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: Colors.grey[600],
           ),
           textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSimpleStatItem({
+    required String emoji,
+    required String value,
+    required String label,
+  }) {
+    return Row(
+      children: [
+        Text(
+          emoji,
+          style: const TextStyle(fontSize: 22),
+        ),
+        const SizedBox(width: 12),
+        RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+              fontWeight: FontWeight.w500,
+            ),
+            children: [
+              TextSpan(
+                text: value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFF56500),
+                ),
+              ),
+              TextSpan(
+                text: ' $label',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

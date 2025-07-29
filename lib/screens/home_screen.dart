@@ -298,6 +298,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToPlayer(BiteModel bite) {
+    // Mark bite as opened when user navigates to player (CRITICAL FIX for Fresh Bites)
+    _contentService.markBiteAsOpened(bite.id);
+    
     // Always navigate to player without any premium checks
     Navigator.of(context).pushNamed('/player', arguments: bite);
   }
@@ -411,14 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            _isTodaysBiteUnlocked ? 'TODAY\'S BITE' : 'COMING SOON',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+                          Container(),
                           if (!_isTodaysBiteUnlocked && _timeUntilUnlock.inSeconds > 0)
                             Text(
                               'Unlocks in ${_formatDuration(_timeUntilUnlock)}',
@@ -554,17 +550,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _isTodaysBiteUnlocked 
-                            ? _todaysBite!.description
-                            : 'This bite will be available soon. Get ready for some fresh wisdom!',
-                        style: TextStyle(
-                          color: _isTodaysBiteUnlocked ? Colors.grey : Colors.grey.shade500,
-                          fontSize: 16,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -934,66 +919,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTodaysBiteSectionWithAccess() {
-    return StreamBuilder<bool>(
-      stream: _subscriptionService.subscriptionStatusStream,
-      initialData: _subscriptionService.hasContentAccess,
+    // CRITICAL FIX: Use sequential content logic instead of trial status checks
+    // This ensures Home Screen uses same logic as Library Screen
+    return FutureBuilder<List<BiteModel>>(
+      future: _contentService.getUserSequentialBites(),
       builder: (context, snapshot) {
-        final hasAccess = snapshot.data ?? false;
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
         
-        if (hasAccess || _subscriptionService.hasContentAccess) {
-          // User has access - show normal content
-          return _buildTodaysBiteSection();
-        } else {
-          // Trial expired - show locked bite using user's NEXT sequential bite
-          return FutureBuilder<BiteModel?>(
-            future: _contentService.getUsersNextBite(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasData && snapshot.data != null) {
-                return LockedBiteWidget(
-                  bite: snapshot.data!,
-                  title: "Today's Bite",
-                );
-              } else {
-                // Fallback to subscription gate if no bite available
-                return const SubscriptionGate(
-                  child: SizedBox.shrink(),
-                  customMessage: "Today's Story",
-                );
-              }
-            },
+        final userSequentialBites = snapshot.data ?? [];
+        
+        // If user has sequential bites available and today's bite is in that list, show it
+        if (userSequentialBites.isNotEmpty && _todaysBite != null) {
+          final todaysBiteInSequential = userSequentialBites.any((bite) => bite.id == _todaysBite!.id);
+          
+          if (todaysBiteInSequential) {
+            // Today's bite is available to user via sequential release - show normal content
+            print('🏠 DEBUG: Today\'s bite ${_todaysBite!.id} is available in user\'s sequential bites');
+            return _buildTodaysBiteSection();
+          }
+        }
+        
+        // Today's bite is not available to user yet - show locked using subscription gate
+        if (_todaysBite != null) {
+          print('🏠 DEBUG: Today\'s bite ${_todaysBite!.id} is NOT in user\'s sequential bites, showing locked');
+          return LockedBiteWidget(
+            bite: _todaysBite!,
+            title: "Today's Bite",
           );
         }
+        
+        // No today's bite available at all
+        return const SubscriptionGate(
+          child: SizedBox.shrink(),
+          customMessage: "Today's Story",
+        );
       },
     );
   }
 
   Widget _buildFreshBitesSectionWithAccess() {
-    return StreamBuilder<bool>(
-      stream: _subscriptionService.subscriptionStatusStream,
-      initialData: _subscriptionService.hasContentAccess,
-      builder: (context, snapshot) {
-        final hasAccess = snapshot.data ?? false;
-        
-        if (hasAccess || _subscriptionService.hasContentAccess) {
-          // User has access - show normal content
-          return _buildFreshBitesWaitingSection();
-        } else if (_catchUpBites.isNotEmpty) {
-          // Trial expired - show user's most recent available bite as locked preview
-          return LockedBiteWidget(
-            bite: _catchUpBites.first, // This is already user-specific from the fixed getCatchUpBites
-            title: "Fresh Stories",
-          );
-        } else {
-          // No content available - show subscription gate
-          return const SubscriptionGate(
-            child: SizedBox.shrink(),
-            customMessage: "Fresh Stories",
-          );
-        }
-      },
-    );
+    // CRITICAL FIX: Use sequential content logic instead of trial status checks
+    // Fresh Bites (catch-up bites) are already filtered by user's sequential progression
+    // So we just need to show them directly since getCatchUpBites() already handles the logic
+    return _buildFreshBitesWaitingSection();
   }
 
   @override

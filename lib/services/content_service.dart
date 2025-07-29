@@ -180,14 +180,18 @@ class ContentService {
       final now = DateTime.now();
       final userCurrentDay = now.difference(userRegistrationDate).inDays + 1;
       
-      print("Getting catch-up bites for user on day $userCurrentDay");
+      // Get user's opened bites list for filtering (CRITICAL FIX for Fresh Bites)
+      final userDocData = userDoc.data();
+      final openedBites = userDocData?['openedBites'] as List<dynamic>? ?? [];
+      final openedBiteIds = openedBites.map((id) => id.toString()).toSet();
+      
+      print("Getting catch-up bites for user on day $userCurrentDay, filtering out ${openedBiteIds.length} opened bites");
       
       // Get bites for days 1 through (current day - 1) - these are the user's available catch-up content
       final querySnapshot = await _firestore
           .collection('bites')
           .where('dayNumber', isLessThan: userCurrentDay)
           .orderBy('dayNumber', descending: true) // Most recent first
-          .limit(limit)
           .get();
       
       if (querySnapshot.docs.isEmpty) {
@@ -197,10 +201,20 @@ class ContentService {
       
       final List<BiteModel> catchUpBites = [];
       for (final doc in querySnapshot.docs) {
-        catchUpBites.add(BiteModel.fromFirestore(doc));
+        final bite = BiteModel.fromFirestore(doc);
+        
+        // Only include bites that haven't been opened (CRITICAL FIX)
+        if (!openedBiteIds.contains(bite.id)) {
+          catchUpBites.add(bite);
+          
+          // Apply limit after filtering
+          if (catchUpBites.length >= limit) {
+            break;
+          }
+        }
       }
       
-      print("Found ${catchUpBites.length} catch-up bites");
+      print("Found ${catchUpBites.length} unopened catch-up bites (filtered from ${querySnapshot.docs.length} total)");
       return catchUpBites;
     } catch (e) {
       print('Error getting catch-up bites: $e');
@@ -240,6 +254,119 @@ class ContentService {
       return bites;
     } catch (e) {
       print('Error getting available bites: $e');
+      return [];
+    }
+  }
+
+  // Get bites available to user based on sequential release (CRITICAL FIX for Library)
+  Future<List<BiteModel>> getUserSequentialBites() async {
+    try {
+      print("Getting user's sequential bites for Library...");
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        print("No authenticated user");
+        return [];
+      }
+      
+      // Get user's registration date to calculate their current day
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        print("User document not found");
+        return [];
+      }
+      
+      final userData = UserModel.fromFirestore(userDoc);
+      final userRegistrationDate = userData.createdAt;
+      final now = DateTime.now();
+      final userCurrentDay = now.difference(userRegistrationDate).inDays + 1;
+      
+      print("User is on day $userCurrentDay - getting bites for days 1 through $userCurrentDay");
+      
+      // Get bites for days 1 through current day (all unlocked content)
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isLessThanOrEqualTo: userCurrentDay)
+          .orderBy('dayNumber', descending: true) // Most recent first (like Instagram)
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) {
+        print("No sequential bites found for user");
+        return [];
+      }
+      
+      final List<BiteModel> userBites = [];
+      for (final doc in querySnapshot.docs) {
+        final bite = BiteModel.fromFirestore(doc);
+        final commentCount = await _getCommentCount(bite.id);
+        userBites.add(bite.copyWith(commentCount: commentCount));
+        print('Sequential bite: Day ${bite.dayNumber} - ${bite.title} (${commentCount} comments)');
+      }
+      
+      print("Found ${userBites.length} sequential bites for user");
+      return userBites;
+    } catch (e) {
+      print('Error getting user sequential bites: $e');
+      return [];
+    }
+  }
+
+  // Get user's sequential bites that have comments (CRITICAL FIX for Dinner Table)
+  Future<List<BiteModel>> getUserSequentialBitesWithComments() async {
+    try {
+      print("Getting user's sequential bites with comments for Dinner Table...");
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        print("No authenticated user");
+        return [];
+      }
+      
+      // Get user's registration date to calculate their current day
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        print("User document not found");
+        return [];
+      }
+      
+      final userData = UserModel.fromFirestore(userDoc);
+      final userRegistrationDate = userData.createdAt;
+      final now = DateTime.now();
+      final userCurrentDay = now.difference(userRegistrationDate).inDays + 1;
+      
+      print("User is on day $userCurrentDay - getting bites with comments for days 1 through $userCurrentDay");
+      
+      // Get bites for days 1 through current day (all unlocked content)
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isLessThanOrEqualTo: userCurrentDay)
+          .orderBy('dayNumber', descending: true)
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) {
+        print("No sequential bites found for user");
+        return [];
+      }
+      
+      final List<BiteModel> bitesWithComments = [];
+      for (final doc in querySnapshot.docs) {
+        final bite = BiteModel.fromFirestore(doc);
+        final commentCount = await _getCommentCount(bite.id);
+        
+        // Only include bites that have comments (for dinner table discussion)
+        if (commentCount > 0) {
+          bitesWithComments.add(bite.copyWith(commentCount: commentCount));
+          print('Dinner Table bite: Day ${bite.dayNumber} - ${bite.title} (${commentCount} comments)');
+        }
+      }
+      
+      // Sort by comment count (most discussed first)
+      bitesWithComments.sort((a, b) => b.commentCount.compareTo(a.commentCount));
+      
+      print("Found ${bitesWithComments.length} sequential bites with comments for dinner table");
+      return bitesWithComments;
+    } catch (e) {
+      print('Error getting user sequential bites with comments: $e');
       return [];
     }
   }
@@ -590,6 +717,28 @@ class ContentService {
     } catch (e) {
       print('Error marking bite as listened: $e');
       return false;
+    }
+  }
+
+  // Mark bite as opened (CRITICAL FIX for Fresh Bites Waiting)
+  Future<void> markBiteAsOpened(String biteId) async {
+    try {
+      print("Marking bite $biteId as opened");
+      
+      final user = _auth.currentUser;
+      if (user == null) return;
+      
+      final timestamp = FieldValue.serverTimestamp();
+      
+      // Add to opened bites list (for filtering Fresh Bites)
+      await _firestore.collection('users').doc(user.uid).update({
+        'openedBites': FieldValue.arrayUnion([biteId]),
+        'lastActivityDate': timestamp,
+      });
+      
+      print("Successfully marked bite $biteId as opened");
+    } catch (e) {
+      print('Error marking bite as opened: $e');
     }
   }
 
