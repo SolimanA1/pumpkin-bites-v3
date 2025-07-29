@@ -545,7 +545,7 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
     final user = FirebaseAuth.instance.currentUser;
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Reduced vertical padding
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -605,7 +605,7 @@ class _CommentDetailScreenState extends State<CommentDetailScreen> {
                     vertical: 12,
                   ),
                 ),
-                maxLines: 3,
+                maxLines: 2, // Reduced from 3 to 2
                 minLines: 1,
                 textCapitalization: TextCapitalization.sentences,
               ),

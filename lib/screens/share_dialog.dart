@@ -442,20 +442,17 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 80, // Fixed height for iOS compatibility
-              child: TextField(
-                controller: _commentController,
-                decoration: InputDecoration(
-                  hintText: 'What did you think about this bite?',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+            TextField(
+              controller: _commentController,
+              decoration: InputDecoration(
+                hintText: 'What did you think about this bite?',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                maxLines: 3,
-                maxLength: 280, // Twitter-like character limit
-                expands: false,
               ),
+              maxLines: 2, // Reduced from 3 to 2
+              maxLength: 280, // Twitter-like character limit
+              minLines: 1,
             ),
             
             // Share buttons
@@ -470,7 +467,7 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
                       onPressed: _isSharing ? null : _shareToInstagramStories,
                       icon: const Icon(Icons.camera_alt, color: Colors.white),
                       label: const Text(
-                        'SHARE TO INSTAGRAM STORIES',
+                        'SHARE',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -488,38 +485,6 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
                   ),
                   const SizedBox(height: 12),
                 ],
-                
-                // Regular share button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSharing ? null : _shareSnippet,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isSharing
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'SHARE SNIPPET',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                  ),
-                ),
               ],
             ),
           ],

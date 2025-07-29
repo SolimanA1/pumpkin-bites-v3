@@ -55,26 +55,22 @@ class InstagramStoryGenerator extends StatelessWidget {
                   ],
                 ),
               ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(40.0),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(40.0, 120.0, 40.0, 100.0), // Custom safe padding
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Better distribution
                     children: [
                       // Top section - App branding
                       _buildTopSection(),
                       
-                      // Middle section - Bite content
-                      Expanded(
-                        child: _buildMiddleSection(),
-                      ),
+                      // Middle section - Bite content  
+                      _buildMiddleSection(),
                       
                       // Bottom section - Call to action
                       _buildBottomSection(),
                     ],
                   ),
-                ),
               ),
             ),
           ),
@@ -88,8 +84,8 @@ class InstagramStoryGenerator extends StatelessWidget {
       children: [
         // App logo/icon placeholder
         Container(
-          width: 80,
-          height: 80,
+          width: 60, // Reduced from 80
+          height: 60, // Reduced from 80
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -143,8 +139,8 @@ class InstagramStoryGenerator extends StatelessWidget {
             children: [
               // Bite thumbnail placeholder (simplified for screenshot)
               Container(
-                width: 100,
-                height: 100,
+                width: 80, // Reduced from 100  
+                height: 80, // Reduced from 100
                 decoration: BoxDecoration(
                   color: const Color(0xFFF56500).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -160,7 +156,7 @@ class InstagramStoryGenerator extends StatelessWidget {
                 bite.title,
                 style: const TextStyle(
                   color: Color(0xFF2C2C2C),
-                  fontSize: 28,
+                  fontSize: 24, // Reduced from 28
                   fontWeight: FontWeight.bold,
                   height: 1.3,
                 ),

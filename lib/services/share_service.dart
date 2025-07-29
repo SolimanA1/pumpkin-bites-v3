@@ -418,7 +418,7 @@ ${bite.description}
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 16),
-                  Text('Creating snippet for Instagram...'),
+                  Text('Creating snippet...'),
                 ],
               ),
               duration: Duration(seconds: 30),
@@ -562,12 +562,28 @@ ${bite.description}
         if (await canLaunchUrl(instagramUrl)) {
           // For iOS, use Instagram URL scheme if available
           await Share.shareXFiles(
-            [XFile(imageFile.path)],
+            [XFile(imageFile.path, mimeType: 'image/png')],
+            subject: 'Pumpkin Bites - ${bite.title}',
+            text: '''I just listened to "${bite.title}" on Pumpkin Bites and thought you might enjoy it too!
+
+${bite.description}
+
+🎧 Listen here: $webLink
+
+Get the full Pumpkin Bites experience: https://pumpkinbites.com''',
           );
         } else {
           // Fallback to regular sharing
           await Share.shareXFiles(
-            [XFile(imageFile.path)],
+            [XFile(imageFile.path, mimeType: 'image/png')],
+            subject: 'Pumpkin Bites - ${bite.title}',
+            text: '''I just listened to "${bite.title}" on Pumpkin Bites and thought you might enjoy it too!
+
+${bite.description}
+
+🎧 Listen here: $webLink
+
+Get the full Pumpkin Bites experience: https://pumpkinbites.com''',
           );
         }
       } else {
@@ -575,6 +591,13 @@ ${bite.description}
         await Share.shareXFiles(
           [XFile(imageFile.path, mimeType: 'image/png')],
           subject: 'Pumpkin Bites - ${bite.title}',
+          text: '''I just listened to "${bite.title}" on Pumpkin Bites and thought you might enjoy it too!
+
+${bite.description}
+
+🎧 Listen here: $webLink
+
+Get the full Pumpkin Bites experience: https://pumpkinbites.com''',
         );
       }
       

@@ -446,7 +446,7 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
     final user = FirebaseAuth.instance.currentUser;
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Reduced vertical padding
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -463,12 +463,12 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // "Replying to" indicator
+            // "Replying to" indicator (smaller)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Reduced padding
               decoration: BoxDecoration(
                 color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12), // Smaller radius
                 border: Border.all(color: Colors.blue.shade200),
               ),
               child: Row(
@@ -476,14 +476,14 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
                 children: [
                   Icon(
                     Icons.reply,
-                    size: 14,
+                    size: 12, // Smaller icon
                     color: Colors.blue.shade700,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     'Replying to @${widget.parentComment.displayName}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11, // Smaller font
                       color: Colors.blue.shade700,
                       fontWeight: FontWeight.w500,
                     ),
@@ -491,7 +491,7 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8), // Reduced spacing
             
             // Input row
             Row(
@@ -541,7 +541,7 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
                         vertical: 12,
                       ),
                     ),
-                    maxLines: 3,
+                    maxLines: 2, // Reduced from 3 to 2
                     minLines: 1,
                     textCapitalization: TextCapitalization.sentences,
                   ),
