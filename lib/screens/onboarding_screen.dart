@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -13,7 +12,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  TimeOfDay _selectedUnlockTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
   bool _isSettingTime = false;
 
   @override
@@ -22,41 +21,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _completeOnboarding() async {
-    try {
-      print('🎉 DEBUG: Completing onboarding...');
-      
-      setState(() {
-        _isSettingTime = true;
-      });
+  Future<void> _setNotificationTime(TimeOfDay time) async {
+    setState(() {
+      _selectedTime = time;
+    });
+    print('Selected notification time: ${time.hour}:${time.minute}');
+  }
 
-      // Save unlock time to user preferences
+  Future<void> _completeOnboarding() async {
+    setState(() {
+      _isSettingTime = true;
+    });
+
+    try {
       final user = FirebaseAuth.instance.currentUser;
-      print('🎉 DEBUG: Current user: ${user?.uid}');
-      
       if (user != null) {
-        print('🎉 DEBUG: Updating user document with onboarding completion...');
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'unlockHour': _selectedUnlockTime.hour,
-          'unlockMinute': _selectedUnlockTime.minute,
+        print('🎉 DEBUG: Completing onboarding for user: ${user.uid}');
+        
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
           'hasCompletedOnboarding': true,
         });
-        print('🎉 DEBUG: User document updated successfully - hasCompletedOnboarding set to true for user ${user.uid}');
         
-        // Verify it was saved by reading back
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        final verified = userDoc.data()?['hasCompletedOnboarding'] ?? false;
-        print('🎉 DEBUG: Verified hasCompletedOnboarding in Firestore: $verified');
-      } else {
-        print('🚨 DEBUG: No authenticated user found during onboarding completion!');
-        return; // Cannot complete onboarding without user
+        print('🎉 DEBUG: Updated hasCompletedOnboarding in Firestore');
       }
 
-      // REMOVED: No longer using SharedPreferences for onboarding flag
-      // All onboarding state is now user-specific in Firestore
-
-      // Trigger app state refresh by navigating back to root
-      print('🎉 DEBUG: Navigating to root to refresh app state...');
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       }
@@ -64,7 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Error completing onboarding: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving preferences: $e')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {
@@ -99,12 +90,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F3), // Soft cream background
+      backgroundColor: const Color(0xFFFFF8F3),
       body: SafeArea(
         child: Column(
           children: [
             // Progress indicator
-            Padding(
+            Container(
               padding: const EdgeInsets.all(20.0),
               child: Row(
                 children: List.generate(3, (index) {
@@ -134,15 +125,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   });
                 },
                 children: [
-                  _buildWelcomePage(),
-                  _buildFeaturesPage(),
-                  _buildUnlockTimePage(),
+                  _buildSlide1(),
+                  _buildSlide2(),
+                  _buildSlide3(),
                 ],
               ),
             ),
 
             // Navigation buttons
-            Padding(
+            Container(
               padding: const EdgeInsets.all(20.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -162,7 +153,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   else
                     const SizedBox(width: 60),
 
-                  // Skip button (only on first two pages)
+                  // Skip button
                   if (_currentPage < 2)
                     TextButton(
                       onPressed: _completeOnboarding,
@@ -177,7 +168,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   else
                     const SizedBox(width: 60),
 
-                  // Next/Finish button
+                  // Next button
                   ElevatedButton(
                     onPressed: _isSettingTime ? null : _nextPage,
                     style: ElevatedButton.styleFrom(
@@ -214,29 +205,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildWelcomePage() {
+  Widget _buildSlide1() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // App icon/logo
+          // Icon
           Container(
             width: 120,
             height: 120,
             decoration: BoxDecoration(
               color: const Color(0xFFF56500),
               borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFF56500).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: const Icon(
-              Icons.restaurant,
+              Icons.explore,
               size: 60,
               color: Colors.white,
             ),
@@ -244,23 +228,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           const SizedBox(height: 40),
 
-          // App name
+          // Title
           const Text(
-            'Pumpkin Bites',
+            'Where Curious Minds Wander',
             style: TextStyle(
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: FontWeight.bold,
               color: Color(0xFFF56500),
             ),
+            textAlign: TextAlign.center,
           ),
 
           const SizedBox(height: 16),
 
-          // Tagline
+          // Subtitle
           const Text(
-            'Wisdom without the stuffiness',
+            '3-minute daily doses of \'huh, interesting\'',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w600,
               color: Color(0xFFE55100),
             ),
@@ -271,278 +256,153 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           // Description
           Text(
-            'Big ideas from great books, served up in bite-sized pieces that won\'t make your eyes glaze over.\n\nDaily 3-minute wisdom drops that actually fit into real life. Smart stuff, zero stuffiness.',
+            'We\'re that friend who reads way too much and can\'t help but share the cool stuff we find. Ideas from books, research, poetry, history - drawn from anywhere curiosity leads.',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey.shade700,
               height: 1.5,
+              color: Colors.grey.shade700,
             ),
             textAlign: TextAlign.center,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Trial info
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF56500), Color(0xFFFF8A50)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.star,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Try it free for a whole week',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Then \$2.99/month • Change your mind anytime',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // Features preview
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildFeatureIcon(Icons.schedule, '3-min\nDaily'),
-              _buildFeatureIcon(Icons.people, 'Fun\nDiscussions'),
-              _buildFeatureIcon(Icons.lightbulb, 'Big Ideas\nSimple'),
-            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFeaturesPage() {
+  Widget _buildSlide2() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Header
-          const Text(
-            'Here\'s How We Roll',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFF56500),
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 40),
-
-          // Feature 1: Daily Brain Food
-          _buildFeatureCard(
-            icon: Icons.lock_clock,
-            title: 'Daily Brain Food',
-            description: 'One perfectly-sized insight delivered fresh each day when you want it',
-            color: const Color(0xFFF56500),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Feature 2: Deliberately Silly
-          _buildFeatureCard(
-            icon: Icons.emoji_emotions,
-            title: 'Actually Interesting',
-            description: 'Big ideas explained through stories that won\'t put you to sleep',
-            color: const Color(0xFFFFB366),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Feature 3: Join Discussions
-          _buildFeatureCard(
-            icon: Icons.chat_bubble,
-            title: 'Chat About It',
-            description: 'Share thoughts, react with emojis, and connect with other curious humans',
-            color: const Color(0xFFE55100),
-          ),
-
-          const SizedBox(height: 40),
-
-          // Bottom message
+          // Icon
           Container(
-            padding: const EdgeInsets.all(16),
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
               color: const Color(0xFFF56500).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFF56500).withOpacity(0.3),
-              ),
+              borderRadius: BorderRadius.circular(25),
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.check_circle,
-                  color: Color(0xFFF56500),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No homework vibes. Just listen and let ideas simmer.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnlockTimePage() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Header
-          const Text(
-            'When should your daily\nbite unlock?',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+            child: const Icon(
+              Icons.calendar_today,
+              size: 50,
               color: Color(0xFFF56500),
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 24),
-
-          Text(
-            'Choose a time that fits your routine.\nYou can always change this later.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 40),
-
-          // Time picker
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.schedule,
-                  size: 48,
-                  color: Color(0xFFF56500),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Daily Unlock Time',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                InkWell(
-                  onTap: () async {
-                    final TimeOfDay? picked = await showTimePicker(
-                      context: context,
-                      initialTime: _selectedUnlockTime,
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: Theme.of(context).colorScheme.copyWith(
-                              primary: const Color(0xFFF56500),
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    
-                    if (picked != null) {
-                      setState(() {
-                        _selectedUnlockTime = picked;
-                      });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF56500),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _selectedUnlockTime.format(context),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
 
           const SizedBox(height: 32),
 
-          // Time suggestions
+          // Title
           const Text(
-            'Popular choices:',
+            'One curious bite, daily',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFF56500),
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 12),
+
+          // Subtitle
+          const Text(
+            'No overwhelm, no homework',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFE55100),
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 20),
+
+          // Description
+          Text(
+            'Every day unlocks something new. Listen when you want, let ideas simmer. We might forget to floss, but we never miss sharing something cool.',
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: Colors.grey.shade700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlide3() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Icon
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF56500).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: const Icon(
+              Icons.schedule,
+              size: 50,
+              color: Color(0xFFF56500),
             ),
           ),
-          const SizedBox(height: 16),
 
+          const SizedBox(height: 32),
+
+          // Title
+          const Text(
+            'When should we drop by?',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFF56500),
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 12),
+
+          // Subtitle
+          const Text(
+            'Pick your daily curiosity time',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFE55100),
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 20),
+
+          // Description
+          Text(
+            'Join the wanderers. Start your free week.',
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.5,
+              color: Colors.grey.shade700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 32),
+
+          // Time chips - simplified
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
-              _buildTimeChip('6:00 AM', 'Morning coffee', const TimeOfDay(hour: 6, minute: 0)),
-              _buildTimeChip('7:30 AM', 'Commute time', const TimeOfDay(hour: 7, minute: 30)),
-              _buildTimeChip('9:00 AM', 'Start of day', const TimeOfDay(hour: 9, minute: 0)),
-              _buildTimeChip('12:00 PM', 'Lunch break', const TimeOfDay(hour: 12, minute: 0)),
-              _buildTimeChip('6:00 PM', 'Evening wind-down', const TimeOfDay(hour: 18, minute: 0)),
+              _buildTimeChip('9:00 AM', const TimeOfDay(hour: 9, minute: 0)),
+              _buildTimeChip('12:00 PM', const TimeOfDay(hour: 12, minute: 0)),
+              _buildTimeChip('6:00 PM', const TimeOfDay(hour: 18, minute: 0)),
             ],
           ),
         ],
@@ -550,136 +410,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildFeatureIcon(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF56500).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Icon(
-            icon,
-            size: 30,
-            color: const Color(0xFFF56500),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 24,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeChip(String time, String label, TimeOfDay timeOfDay) {
-    final isSelected = _selectedUnlockTime.hour == timeOfDay.hour && 
-                      _selectedUnlockTime.minute == timeOfDay.minute;
+  Widget _buildTimeChip(String timeText, TimeOfDay timeOfDay) {
+    final isSelected = _selectedTime.hour == timeOfDay.hour && _selectedTime.minute == timeOfDay.minute;
     
     return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedUnlockTime = timeOfDay;
-        });
-      },
+      onTap: () => _setNotificationTime(timeOfDay),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF56500) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? const Color(0xFFF56500) : Colors.white,
+          borderRadius: BorderRadius.circular(25),
           border: Border.all(
             color: isSelected ? const Color(0xFFF56500) : Colors.grey.shade300,
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              time,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.white : Colors.black,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? Colors.white.withOpacity(0.8) : Colors.grey.shade600,
-              ),
-            ),
-          ],
+        child: Text(
+          timeText,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : const Color(0xFFF56500),
+          ),
         ),
       ),
     );
