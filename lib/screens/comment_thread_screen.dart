@@ -64,10 +64,11 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
       // Get all comments for this bite
       final allComments = await _contentService.getCommentsForBite(widget.bite.id);
       
-      // Filter replies to this parent comment (comments that start with @parentAuthor)
+      // Filter replies to this parent comment (comments that start with @parentAuthor or contain nested replies)
       final replies = allComments.where((comment) {
         return comment.id != widget.parentComment.id && 
-               comment.text.startsWith('@${widget.parentComment.displayName}');
+               (comment.text.startsWith('@${widget.parentComment.displayName}') ||
+                comment.text.contains('→ @${widget.parentComment.displayName}'));
       }).toList();
       
       // Sort replies chronologically (oldest first, like YouTube)
@@ -95,8 +96,16 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
     });
     
     try {
-      // Format the reply to include the parent comment reference
-      final replyText = '@${widget.parentComment.displayName} $text';
+      String replyText;
+      
+      // Check if this is a nested reply (contains "→")
+      if (text.contains('→')) {
+        // It's already formatted as a nested reply
+        replyText = text;
+      } else {
+        // It's a direct reply to the parent comment
+        replyText = '@${widget.parentComment.displayName} $text';
+      }
       
       final success = await _contentService.addComment(widget.bite.id, replyText);
       
@@ -134,6 +143,23 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
         _isPostingReply = false;
       });
     }
+  }
+
+  void _replyToReply(CommentModel reply) {
+    // Extract the original username from the reply
+    String originalUsername = widget.parentComment.displayName;
+    String replyToUsername = reply.displayName;
+    
+    // Set placeholder text showing who they're replying to
+    _replyController.text = '@$replyToUsername (→ @$originalUsername) ';
+    
+    // Move cursor to end and focus
+    _replyController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _replyController.text.length),
+    );
+    
+    // Focus the text field
+    FocusScope.of(context).requestFocus();
   }
 
   Future<void> _likeComment(CommentModel comment) async {
@@ -337,11 +363,29 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
   }
 
   Widget _buildReplyItem(CommentModel reply) {
-    // Remove the @username part from the display text
+    // Parse display text based on reply format
     String displayText = reply.text;
-    final spaceIndex = reply.text.indexOf(' ');
-    if (reply.text.startsWith('@') && spaceIndex > 1) {
-      displayText = reply.text.substring(spaceIndex + 1);
+    if (reply.text.startsWith('@')) {
+      if (reply.text.contains('→')) {
+        // Handle nested reply format: "@user1 (→ @user2) actual text"
+        final arrowIndex = reply.text.indexOf('→');
+        final closingParen = reply.text.indexOf(')', arrowIndex);
+        if (closingParen > arrowIndex) {
+          displayText = reply.text.substring(closingParen + 1).trim();
+          
+          // Extract usernames for display
+          final firstAt = reply.text.indexOf('@');
+          final firstUser = reply.text.substring(firstAt + 1, reply.text.indexOf(' '));
+          
+          displayText = 'Replying to @$firstUser: $displayText';
+        }
+      } else {
+        // Handle simple reply format: "@user actual text"
+        final spaceIndex = reply.text.indexOf(' ');
+        if (spaceIndex > 1) {
+          displayText = reply.text.substring(spaceIndex + 1);
+        }
+      }
     }
     
     return Container(
@@ -406,33 +450,65 @@ class _CommentThreadScreenState extends State<CommentThreadScreen> {
                 ),
                 const SizedBox(height: 8),
                 
-                // Like button
-                InkWell(
-                  onTap: () => _likeComment(reply),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.thumb_up_outlined,
-                          size: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        if (reply.likeCount > 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '${reply.likeCount}',
-                            style: TextStyle(
-                              fontSize: 11,
+                // Like and Reply buttons
+                Row(
+                  children: [
+                    // Like button
+                    InkWell(
+                      onTap: () => _likeComment(reply),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.thumb_up_outlined,
+                              size: 14,
                               color: Colors.grey.shade600,
                             ),
-                          ),
-                        ],
-                      ],
+                            if (reply.likeCount > 0) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '${reply.likeCount}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 16),
+                    // Reply button
+                    InkWell(
+                      onTap: () => _replyToReply(reply),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.reply,
+                              size: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Reply',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
