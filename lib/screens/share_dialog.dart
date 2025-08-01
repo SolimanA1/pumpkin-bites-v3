@@ -26,7 +26,6 @@ class ShareDialog extends StatefulWidget {
 }
 
 class _ShareDialogState extends State<ShareDialog> {
-  final TextEditingController _commentController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ShareService _shareService = ShareService();
@@ -93,7 +92,6 @@ class _ShareDialogState extends State<ShareDialog> {
   
   @override
   void dispose() {
-    _commentController.dispose();
     _previewTimer?.cancel();
     super.dispose();
   }
@@ -138,7 +136,7 @@ class _ShareDialogState extends State<ShareDialog> {
         'timestamp': FieldValue.serverTimestamp(),
         'snippetStart': _startPosition,
         'snippetDuration': _snippetDuration,
-        'message': _commentController.text.trim(),
+        'message': '',
       });
       
       // Update the bite's share count
@@ -167,7 +165,7 @@ class _ShareDialogState extends State<ShareDialog> {
         widget.bite,
         startTime: startTime,
         endTime: endTime,
-        personalMessage: _commentController.text.trim(),
+        personalMessage: '',
       );
       
       if (mounted) {
@@ -205,7 +203,7 @@ class _ShareDialogState extends State<ShareDialog> {
       await _shareService.shareToInstagramStories(
         context,
         widget.bite,
-        personalComment: _commentController.text.trim(),
+        personalComment: '',
         snippetDuration: _snippetDuration.round(),
         startPosition: Duration(seconds: _startPosition.round()),
       );
@@ -242,15 +240,10 @@ class _ShareDialogState extends State<ShareDialog> {
   
   // Create a share message based on the bite content
   String _createShareMessage(BiteModel bite, String deepLink) {
-    final personalComment = _commentController.text.trim();
-    final personalNote = personalComment.isNotEmpty 
-        ? "Here's what I think: $personalComment\n\n" 
-        : "";
-        
     return '''
 I just listened to "${bite.title}" on Pumpkin Bites and thought you might enjoy it too!
 
-$personalNote${bite.description}
+${bite.description}
 
 Check out this ${_snippetDuration.round()}-second snippet: $deepLink
 ''';
@@ -433,26 +426,6 @@ Check out this ${_snippetDuration.round()}-second snippet: $deepLink
                       }
                     : _previewSnippet,
               ),
-            ),
-            
-            // Personal comment
-            const SizedBox(height: 16),
-            const Text(
-              'Add a personal comment (optional):',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _commentController,
-              decoration: InputDecoration(
-                hintText: 'What did you think about this bite?',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              maxLines: 2, // Reduced from 3 to 2
-              maxLength: 280, // Twitter-like character limit
-              minLines: 1,
             ),
             
             // Share buttons
