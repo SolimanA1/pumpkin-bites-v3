@@ -76,6 +76,9 @@ class AudioPlayerService {
       );
       
       // Set the audio source with media item for background controls
+      String finalAudioUrl = audioUrl;
+      MediaItem finalMediaItem = mediaItem;
+      
       try {
         await _player.setAudioSource(
           AudioSource.uri(
@@ -87,14 +90,15 @@ class AudioPlayerService {
       } catch (e) {
         print("Error setting audio source: $e");
         // Try fallback URL if setting url fails
-        final fallbackMediaItem = mediaItem.copyWith(
+        finalAudioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+        finalMediaItem = mediaItem.copyWith(
           id: '${bite.id}_fallback',
           title: '${bite.title} (Fallback)',
         );
         await _player.setAudioSource(
           AudioSource.uri(
-            Uri.parse("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"),
-            tag: fallbackMediaItem,
+            Uri.parse(finalAudioUrl),
+            tag: finalMediaItem,
           ),
         );
       }
@@ -109,18 +113,28 @@ class AudioPlayerService {
         print("Using bite model duration: ${bite.duration} seconds");
         // Use the duration from the bite model (in seconds)
         if (bite.duration > 0) {
-          // Force a default duration based on the bite model
-          _player.setClip(
+          // Create clipped audio source with MediaItem tag preserved
+          final clippedSource = ClippingAudioSource(
             start: Duration.zero,
             end: Duration(seconds: bite.duration),
+            child: AudioSource.uri(
+              Uri.parse(finalAudioUrl),
+              tag: finalMediaItem,
+            ),
           );
+          await _player.setAudioSource(clippedSource);
         } else {
           // If model duration is also invalid, use a default of 3 minutes
           print("Using default 3-minute duration");
-          _player.setClip(
+          final clippedSource = ClippingAudioSource(
             start: Duration.zero,
             end: const Duration(minutes: 3),
+            child: AudioSource.uri(
+              Uri.parse(finalAudioUrl),
+              tag: finalMediaItem,
+            ),
           );
+          await _player.setAudioSource(clippedSource);
         }
       }
       

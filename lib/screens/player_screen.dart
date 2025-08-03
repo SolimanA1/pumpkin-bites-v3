@@ -146,7 +146,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _loadReactionCounts() async {
     try {
-      print('😀 DEBUG: Loading reaction counts for bite: ${widget.bite.id}');
       
       final reactionCounts = <String, int>{
         '🤔': 0, '🔥': 0, '💡': 0, '📝': 0
@@ -156,7 +155,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       // Since reactions are stored as users/{userId}/reactions/{biteId}
       // where biteId is the document ID, we need to iterate through users
       final usersSnapshot = await _firestore.collection('users').get();
-      print('😀 DEBUG: Found ${usersSnapshot.docs.length} users to check for reactions');
       
       for (final userDoc in usersSnapshot.docs) {
         try {
@@ -168,20 +166,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
           if (reactionDoc.exists) {
             final reactionData = reactionDoc.data();
             final reaction = reactionData?['reaction'] as String?;
-            print('😀 DEBUG: User ${userDoc.id} reacted with: $reaction');
             
             if (reaction != null && reactionCounts.containsKey(reaction)) {
               reactionCounts[reaction] = reactionCounts[reaction]! + 1;
-              print('😀 DEBUG: Updated count for $reaction: ${reactionCounts[reaction]}');
             }
           }
         } catch (e) {
-          print('😀 DEBUG: Error checking reactions for user ${userDoc.id}: $e');
           // Continue to next user
         }
       }
       
-      print('😀 DEBUG: Final reaction counts for bite ${widget.bite.id}: $reactionCounts');
       
       if (mounted) {
         setState(() {
@@ -189,7 +183,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         });
       }
     } catch (e) {
-      print('😀 DEBUG: Error loading reaction counts: $e');
+      print('Error loading reaction counts: $e');
       // Initialize empty counts on error
       if (mounted) {
         setState(() {
@@ -227,7 +221,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_isSavingReaction) return;
     
     try {
-      print('💾 DEBUG: Saving reaction "$reaction" for bite: ${widget.bite.id}');
       
       setState(() {
         _isSavingReaction = true;
@@ -235,14 +228,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       
       final user = _auth.currentUser;
       if (user == null) {
-        print('💾 DEBUG: No user logged in, cannot save reaction');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You must be logged in to react')),
         );
         return;
       }
       
-      print('💾 DEBUG: User ${user.uid} saving reaction to path: users/${user.uid}/reactions/${widget.bite.id}');
       
       // Save reaction to Firestore
       await _firestore
@@ -257,7 +248,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         'biteTitle': widget.bite.title,
       });
       
-      print('💾 DEBUG: Reaction saved successfully');
       
       setState(() {
         _selectedReaction = reaction;
@@ -265,7 +255,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       });
       
       // Refresh reaction counts
-      print('💾 DEBUG: Refreshing reaction counts after save...');
       _loadReactionCounts();
       
       final reactionName = _reactionOptions[reaction] ?? reaction;
@@ -900,5 +889,142 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     ];
+  }
+}
+
+// Performance optimization: Const widgets for player screen
+class _LoadingPlayerWidget extends StatelessWidget {
+  const _LoadingPlayerWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Loading audio...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF666666),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReactionButtonWidget extends StatelessWidget {
+  final String reaction;
+  final int count;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final bool isLoading;
+
+  const _ReactionButtonWidget({
+    Key? key,
+    required this.reaction,
+    required this.count,
+    required this.isSelected,
+    this.onTap,
+    this.isLoading = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isLoading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFF56500) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFF56500) : Colors.grey.shade300,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              reaction,
+              style: const TextStyle(fontSize: 16),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white : Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayPauseButtonWidget extends StatelessWidget {
+  final bool isPlaying;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  const _PlayPauseButtonWidget({
+    Key? key,
+    required this.isPlaying,
+    required this.isLoading,
+    this.onPressed,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF56500),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: IconButton(
+        onPressed: isLoading ? null : onPressed,
+        icon: isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Icon(
+                isPlaying ? Icons.pause : Icons.play_arrow,
+                color: Colors.white,
+                size: 32,
+              ),
+      ),
+    );
   }
 }

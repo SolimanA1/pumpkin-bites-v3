@@ -8,22 +8,46 @@ import '../models/user_model.dart';
 class ContentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Performance optimization: Cache user document to avoid duplicate Firebase calls
+  DocumentSnapshot<Map<String, dynamic>>? _cachedUserDoc;
+  String? _cachedUserId;
+  DateTime? _userDocCacheTime;
+  static const Duration _userDocCacheValidityDuration = Duration(minutes: 5);
+
+  // Performance optimization: Get user document with caching
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _getCachedUserDoc() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    
+    final now = DateTime.now();
+    
+    // Check if we have a valid cached user document
+    if (_cachedUserDoc != null && 
+        _cachedUserId == user.uid &&
+        _userDocCacheTime != null &&
+        now.difference(_userDocCacheTime!).abs() < _userDocCacheValidityDuration) {
+      return _cachedUserDoc;
+    }
+    
+    // Fetch fresh user document
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    
+    // Cache the result
+    _cachedUserDoc = userDoc;
+    _cachedUserId = user.uid;
+    _userDocCacheTime = now;
+    
+    return userDoc;
+  }
 
   // Get today's bite based on user's personal progression (CRITICAL FIX)
   Future<BiteModel?> getTodaysBite() async {
     try {
-      print("Getting today's bite for user progression...");
       
-      final user = _auth.currentUser;
-      if (user == null) {
-        print("No authenticated user");
-        return null;
-      }
-      
-      // Get user's registration date to calculate their day number
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) {
-        print("User document not found");
+      // Performance optimization: Use cached user document
+      final userDoc = await _getCachedUserDoc();
+      if (userDoc == null || !userDoc.exists) {
         return null;
       }
       
@@ -34,8 +58,6 @@ class ContentService {
       final now = DateTime.now();
       final daysSinceRegistration = now.difference(userRegistrationDate).inDays + 1; // +1 so Day 1 is first day
       
-      print("User registered: $userRegistrationDate");
-      print("User is on Day: $daysSinceRegistration");
       
       // Get the bite for this specific day number
       final querySnapshot = await _firestore
@@ -45,7 +67,6 @@ class ContentService {
           .get();
 
       if (querySnapshot.docs.isEmpty) {
-        print("No bite found for day $daysSinceRegistration, trying closest available");
         
         // If no exact day match, get the highest available day number that's <= user's day
         final fallbackQuery = await _firestore
@@ -56,17 +77,14 @@ class ContentService {
             .get();
             
         if (fallbackQuery.docs.isEmpty) {
-          print("No bites available for user's progression");
           return null;
         }
         
         final doc = fallbackQuery.docs.first;
-        print("Found fallback bite for day ${doc.data()['dayNumber']}: ${doc.id}");
         return BiteModel.fromFirestore(doc);
       }
       
       final doc = querySnapshot.docs.first;
-      print("Found exact bite for day $daysSinceRegistration: ${doc.id}");
       return BiteModel.fromFirestore(doc);
     } catch (e) {
       print('Error getting today\'s bite: $e');
@@ -88,7 +106,6 @@ class ContentService {
       // Get user's registration date to calculate their day number
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       if (!userDoc.exists) {
-        print("User document not found");
         return null;
       }
       
@@ -160,18 +177,10 @@ class ContentService {
   // Get catch-up bites based on user's progression (CRITICAL FIX)
   Future<List<BiteModel>> getCatchUpBites({int limit = 7}) async {
     try {
-      print("Getting catch-up bites for user progression...");
       
-      final user = _auth.currentUser;
-      if (user == null) {
-        print("No authenticated user");
-        return [];
-      }
-      
-      // Get user's registration date to calculate their current day
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) {
-        print("User document not found");
+      // Performance optimization: Use cached user document
+      final userDoc = await _getCachedUserDoc();
+      if (userDoc == null || !userDoc.exists) {
         return [];
       }
       
@@ -185,7 +194,6 @@ class ContentService {
       final openedBites = userDocData?['openedBites'] as List<dynamic>? ?? [];
       final openedBiteIds = openedBites.map((id) => id.toString()).toSet();
       
-      print("Getting catch-up bites for user on day $userCurrentDay, filtering out ${openedBiteIds.length} opened bites");
       
       // Get bites for days 1 through (current day - 1) - these are the user's available catch-up content
       final querySnapshot = await _firestore
@@ -195,7 +203,6 @@ class ContentService {
           .get();
       
       if (querySnapshot.docs.isEmpty) {
-        print("No catch-up bites found for user progression");
         return [];
       }
       
@@ -214,7 +221,6 @@ class ContentService {
         }
       }
       
-      print("Found ${catchUpBites.length} unopened catch-up bites (filtered from ${querySnapshot.docs.length} total)");
       return catchUpBites;
     } catch (e) {
       print('Error getting catch-up bites: $e');
@@ -272,7 +278,6 @@ class ContentService {
       // Get user's registration date to calculate their current day
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       if (!userDoc.exists) {
-        print("User document not found");
         return [];
       }
       
@@ -325,7 +330,6 @@ class ContentService {
       // Get user's registration date to calculate their current day
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       if (!userDoc.exists) {
-        print("User document not found");
         return [];
       }
       

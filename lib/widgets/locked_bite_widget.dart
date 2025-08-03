@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pumpkin_bites_new/screens/subscription_screen.dart';
 import 'package:pumpkin_bites_new/models/bite_model.dart';
 
@@ -68,14 +69,28 @@ class LockedBiteWidget extends StatelessWidget {
                   ),
                 ),
                 
-                // Bite image (blurred)
+                // Bite image (blurred) - Performance optimization: Use CachedNetworkImage
                 if (bite.thumbnailUrl.isNotEmpty)
-                  Container(
+                  SizedBox(
                     height: 200,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(bite.thumbnailUrl),
-                        fit: BoxFit.cover,
+                    child: CachedNetworkImage(
+                      imageUrl: bite.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey.shade300,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey.shade300,
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
+                          size: 50,
+                        ),
                       ),
                     ),
                   ),

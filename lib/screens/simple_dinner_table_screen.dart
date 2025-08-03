@@ -282,6 +282,7 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
                       onRefresh: _loadBitesWithComments,
                       child: ListView.builder(
                         physics: const BouncingScrollPhysics(),
+        cacheExtent: 1000, // Performance optimization: Cache more items for smoother scrolling
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         itemCount: _bitesWithComments.length,
                         itemBuilder: (context, index) {

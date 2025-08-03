@@ -29,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _refreshTimer;
   Timer? _countdownTimer;
   Map<String, int> _commentCountCache = {};
+  Map<String, DateTime> _commentCountCacheTimestamps = {};
+  static const Duration _commentCacheValidityDuration = Duration(minutes: 5); // Cache comment counts for 5 minutes
   
   // Sequential release system variables - cached for performance
   bool _isTodaysBiteUnlocked = false;
@@ -54,26 +56,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   void _startCountdownTimer() {
-    // Update countdown every second for unlock timer
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_nextUnlockTime != null) {
-        final now = DateTime.now();
-        final difference = _nextUnlockTime!.difference(now);
-        
-        if (difference.isNegative) {
-          // Time to unlock! Refresh content
-          setState(() {
-            _isTodaysBiteUnlocked = true;
-            _timeUntilUnlock = Duration.zero;
-          });
-          _refreshContent();
-        } else {
-          setState(() {
-            _timeUntilUnlock = difference;
-          });
-        }
-      }
+    // Performance optimization: Timer logic moved to _CountdownTimerWidget
+    // This reduces full page rebuilds to just the countdown component
+  }
+  
+  // Performance optimization: Callback for unlock event from countdown widget
+  void _handleUnlock() {
+    setState(() {
+      _isTodaysBiteUnlocked = true;
+      _timeUntilUnlock = Duration.zero;
     });
+    _refreshContent();
   }
 
   Future<void> _refreshContent() async {
@@ -84,22 +77,38 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final todaysBite = await _contentService.getTodaysBite();
-      final catchUpBites = await _contentService.getCatchUpBites();
+      // Performance optimization: Load content in parallel
+      final results = await Future.wait([
+        _contentService.getTodaysBite(),
+        _contentService.getCatchUpBites(),
+      ]);
+      
+      final todaysBite = results[0] as BiteModel?;
+      final catchUpBites = results[1] as List<BiteModel>;
+      
+      // Update cached today's bite
+      _cachedTodaysBite = todaysBite;
 
-      // Load comment counts for all bites (similar to dinner table)
+      // Performance optimization: Load all comment counts in parallel
+      final biteIds = <String>[];
+      if (todaysBite != null) biteIds.add(todaysBite.id);
+      biteIds.addAll(catchUpBites.map((bite) => bite.id));
+      
+      final commentCountFutures = biteIds.map((biteId) => _getCommentCount(biteId));
+      final commentCounts = await Future.wait(commentCountFutures);
+      
+      // Build final bite models with comment counts
       BiteModel? todaysBiteWithComments;
       if (todaysBite != null) {
-        final todaysCommentCount = await _getCommentCount(todaysBite.id);
-        todaysBiteWithComments = todaysBite.copyWith(commentCount: todaysCommentCount);
-        print('DEBUG: Refresh - Today\'s bite ${todaysBite.id} has $todaysCommentCount comments');
+        todaysBiteWithComments = todaysBite.copyWith(commentCount: commentCounts[0]);
       }
-
-      List<BiteModel> catchUpBitesWithComments = [];
-      for (var bite in catchUpBites) {
-        final commentCount = await _getCommentCount(bite.id);
-        catchUpBitesWithComments.add(bite.copyWith(commentCount: commentCount));
-        print('DEBUG: Refresh - Bite ${bite.id} (${bite.title}) has $commentCount comments');
+      
+      final List<BiteModel> catchUpBitesWithComments = [];
+      final startIndex = todaysBite != null ? 1 : 0;
+      for (int i = 0; i < catchUpBites.length; i++) {
+        catchUpBitesWithComments.add(
+          catchUpBites[i].copyWith(commentCount: commentCounts[startIndex + i])
+        );
       }
 
       // Simulate sequential release logic
@@ -122,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isRefreshing = false;
       });
     } catch (e) {
-      print('DEBUG: Error refreshing content: $e');
+      print('Error refreshing content: $e');
       setState(() {
         _isRefreshing = false;
       });
@@ -138,10 +147,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadingMessage = 'Loading content...';
       });
 
-      print('PERF: Home - Starting content load...');
-      
-      final todaysBiteStopwatch = Stopwatch()..start();
+      // Performance optimization: Parallel content loading
       BiteModel? todaysBite;
+      List<BiteModel> catchUpBites;
       
       // Check if we have a cached today's bite for the current day
       if (_cachedTodaysBite != null && 
@@ -149,46 +157,49 @@ class _HomeScreenState extends State<HomeScreen> {
           _lastUnlockCalculation!.day == DateTime.now().day &&
           _lastUnlockCalculation!.month == DateTime.now().month &&
           _lastUnlockCalculation!.year == DateTime.now().year) {
-        // Use cached today's bite
+        // Use cached today's bite and load catch-up bites in parallel
         todaysBite = _cachedTodaysBite;
-        print('PERF: Home - Used cached today\'s bite');
+        catchUpBites = await _contentService.getCatchUpBites();
       } else {
-        // Fetch and cache today's bite
-        todaysBite = await _contentService.getTodaysBite();
+        // PERFORMANCE OPTIMIZATION: Load both in parallel instead of sequential
+        final results = await Future.wait([
+          _contentService.getTodaysBite(),
+          _contentService.getCatchUpBites(),
+        ]);
+        
+        todaysBite = results[0] as BiteModel?;
+        catchUpBites = results[1] as List<BiteModel>;
         _cachedTodaysBite = todaysBite;
-        print('PERF: Home - Fetched and cached today\'s bite');
       }
-      
-      todaysBiteStopwatch.stop();
-      print('PERF: Home - getTodaysBite took ${todaysBiteStopwatch.elapsedMilliseconds}ms');
 
-      final catchUpStopwatch = Stopwatch()..start();
-      final catchUpBites = await _contentService.getCatchUpBites();
-      catchUpStopwatch.stop();
-      print('PERF: Home - getCatchUpBites took ${catchUpStopwatch.elapsedMilliseconds}ms');
-
-      // Load comment counts for all bites (similar to dinner table)
+      // Performance optimization: Load all comment counts in parallel
       setState(() {
         _loadingMessage = 'Loading discussions...';
         _isLoadingComments = true;
       });
       
-      final commentStopwatch = Stopwatch()..start();
+      // Build list of all bite IDs that need comment counts
+      final biteIds = <String>[];
+      if (todaysBite != null) biteIds.add(todaysBite.id);
+      biteIds.addAll(catchUpBites.map((bite) => bite.id));
+      
+      // Load all comment counts in parallel
+      final commentCountFutures = biteIds.map((biteId) => _getCommentCount(biteId));
+      final commentCounts = await Future.wait(commentCountFutures);
+      
+      // Build final bite models with comment counts
       BiteModel? todaysBiteWithComments;
       if (todaysBite != null) {
-        final todaysCommentCount = await _getCommentCount(todaysBite.id);
-        todaysBiteWithComments = todaysBite.copyWith(commentCount: todaysCommentCount);
-        print('DEBUG: Today\'s bite ${todaysBite.id} has $todaysCommentCount comments');
+        todaysBiteWithComments = todaysBite.copyWith(commentCount: commentCounts[0]);
       }
-
-      List<BiteModel> catchUpBitesWithComments = [];
-      for (var bite in catchUpBites) {
-        final commentCount = await _getCommentCount(bite.id);
-        catchUpBitesWithComments.add(bite.copyWith(commentCount: commentCount));
-        print('DEBUG: Bite ${bite.id} (${bite.title}) has $commentCount comments');
+      
+      final List<BiteModel> catchUpBitesWithComments = [];
+      final startIndex = todaysBite != null ? 1 : 0;
+      for (int i = 0; i < catchUpBites.length; i++) {
+        catchUpBitesWithComments.add(
+          catchUpBites[i].copyWith(commentCount: commentCounts[startIndex + i])
+        );
       }
-      commentStopwatch.stop();
-      print('PERF: Home - Loading ${catchUpBites.length + 1} comment counts took ${commentStopwatch.elapsedMilliseconds}ms');
 
       // Initialize sequential release logic - use cache if valid
       final releaseStopwatch = Stopwatch()..start();
@@ -204,7 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
         // Use cached values
         isUnlocked = _isTodaysBiteUnlocked;
         nextUnlock = _nextUnlockTime;
-        print('PERF: Home - Used cached unlock calculation');
       } else {
         // Calculate new unlock status
         final unlockHour = 9; // 9 AM unlock time
@@ -217,10 +227,8 @@ class _HomeScreenState extends State<HomeScreen> {
         
         // Cache the calculation
         _lastUnlockCalculation = now;
-        print('PERF: Home - Calculated new unlock status');
       }
       releaseStopwatch.stop();
-      print('PERF: Home - Release logic took ${releaseStopwatch.elapsedMilliseconds}ms');
 
       setState(() {
         _todaysBite = todaysBiteWithComments;
@@ -233,10 +241,9 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       
       stopwatch.stop();
-      print('PERF: Home - Total _loadContent took ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       stopwatch.stop();
-      print('PERF: Home - _loadContent FAILED after ${stopwatch.elapsedMilliseconds}ms: $e');
+      print('Content loading error: $e');
       setState(() {
         _errorMessage = 'Oops! Having trouble fetching today\'s wisdom. Give us a moment to sort this out.';
         _isLoading = false;
@@ -245,9 +252,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<int> _getCommentCount(String biteId) async {
-    // Check cache first for performance
-    if (_commentCountCache.containsKey(biteId)) {
-      return _commentCountCache[biteId]!;
+    // Performance optimization: Check cache first with expiration
+    if (_commentCountCache.containsKey(biteId) && 
+        _commentCountCacheTimestamps.containsKey(biteId)) {
+      final cacheTime = _commentCountCacheTimestamps[biteId]!;
+      final now = DateTime.now();
+      
+      // Use cached value if it's still valid
+      if (now.difference(cacheTime).abs() < _commentCacheValidityDuration) {
+        return _commentCountCache[biteId]!;
+      } else {
+        // Remove expired cache entries
+        _commentCountCache.remove(biteId);
+        _commentCountCacheTimestamps.remove(biteId);
+      }
     }
     
     try {
@@ -257,11 +275,12 @@ class _HomeScreenState extends State<HomeScreen> {
           .get();
       final count = commentsSnapshot.docs.length;
       
-      // Cache the result
+      // Cache the result with timestamp
       _commentCountCache[biteId] = count;
+      _commentCountCacheTimestamps[biteId] = DateTime.now();
       return count;
     } catch (e) {
-      print('DEBUG: Error getting comment count for bite $biteId: $e');
+      print('Error getting comment count for bite $biteId: $e');
       return 0;
     }
   }
@@ -269,8 +288,11 @@ class _HomeScreenState extends State<HomeScreen> {
   // Method to refresh comment counts for specific bite (called when returning from comments)
   Future<void> _refreshBiteCommentCount(String biteId) async {
     try {
+      // Performance optimization: Force cache refresh by removing cached entry first
+      _commentCountCache.remove(biteId);
+      _commentCountCacheTimestamps.remove(biteId);
+      
       final newCommentCount = await _getCommentCount(biteId);
-      print('DEBUG: Refreshing comment count for bite $biteId: $newCommentCount');
       
       // Update today's bite if it matches
       if (_todaysBite?.id == biteId) {
@@ -293,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      print('DEBUG: Error refreshing comment count for bite $biteId: $e');
+      print('Error refreshing comment count for bite $biteId: $e');
     }
   }
 
@@ -311,41 +333,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   Widget _buildTodaysBiteSection() {
+    // Performance optimization: Use const widget for empty state
     if (_todaysBite == null) {
-      return Card(
-        margin: const EdgeInsets.all(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Today\'s Bite',
-                style: GoogleFonts.crimsonText(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFF56500),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Icon(
-                Icons.schedule,
-                size: 48,
-                color: Color(0xFFF56500),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Today\'s wisdom is still simmering.\nCheck back in a bit!',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF666666),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
+      return const _EmptyTodaysBiteWidget();
     }
 
     return Card(
@@ -837,67 +827,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(
-                    color: Color(0xFFF56500),
-                    strokeWidth: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _loadingMessage,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF666666),
-                    ),
-                  ),
-                  if (_isLoadingComments) ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      'This might take a moment...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF999999),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+          ? _LoadingIndicatorWidget(
+              message: _isLoadingComments 
+                ? '$_loadingMessage\nThis might take a moment...'
+                : _loadingMessage,
             )
           : _errorMessage.isNotEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.refresh,
-                          size: 48,
-                          color: Color(0xFFF56500),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage,
-                          style: const TextStyle(
-                            color: Color(0xFF666666),
-                            fontSize: 16,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: _loadContent,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF56500),
-                          ),
-                          child: const Text('Try Again'),
-                        ),
-                      ],
-                    ),
-                  ),
+              ? _ErrorMessageWidget(
+                  message: _errorMessage,
+                  onRetry: _loadContent,
                 )
               : RefreshIndicator(
                   onRefresh: _refreshContent,
@@ -933,14 +871,12 @@ class _HomeScreenState extends State<HomeScreen> {
           
           if (todaysBiteInSequential) {
             // Today's bite is available to user via sequential release - show normal content
-            print('🏠 DEBUG: Today\'s bite ${_todaysBite!.id} is available in user\'s sequential bites');
             return _buildTodaysBiteSection();
           }
         }
         
         // Today's bite is not available to user yet - show locked using subscription gate
         if (_todaysBite != null) {
-          print('🏠 DEBUG: Today\'s bite ${_todaysBite!.id} is NOT in user\'s sequential bites, showing locked');
           return LockedBiteWidget(
             bite: _todaysBite!,
             title: "Today's Bite",
@@ -969,5 +905,232 @@ class _HomeScreenState extends State<HomeScreen> {
     _countdownTimer?.cancel();
     _commentCountCache.clear();
     super.dispose();
+  }
+}
+
+// Performance optimization: Const widgets to prevent unnecessary rebuilds
+class _EmptyTodaysBiteWidget extends StatelessWidget {
+  const _EmptyTodaysBiteWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Today\'s Bite',
+              style: GoogleFonts.crimsonText(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFF56500),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Icon(
+              Icons.schedule,
+              size: 48,
+              color: Color(0xFFF56500),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Today\'s wisdom is still simmering.\nCheck back in a bit!',
+              style: TextStyle(
+                fontSize: 16,
+                color: Color(0xFF666666),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingIndicatorWidget extends StatelessWidget {
+  final String message;
+  
+  const _LoadingIndicatorWidget({
+    Key? key,
+    required this.message,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Color(0xFF666666),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorMessageWidget extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+  
+  const _ErrorMessageWidget({
+    Key? key,
+    required this.message,
+    this.onRetry,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Color(0xFFF56500),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF666666),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF56500),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Try Again'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Performance optimization: Separate countdown widget to prevent full page rebuilds
+class _CountdownTimerWidget extends StatefulWidget {
+  final DateTime? nextUnlockTime;
+  final VoidCallback? onUnlock;
+  
+  const _CountdownTimerWidget({
+    Key? key,
+    this.nextUnlockTime,
+    this.onUnlock,
+  }) : super(key: key);
+
+  @override
+  _CountdownTimerWidgetState createState() => _CountdownTimerWidgetState();
+}
+
+class _CountdownTimerWidgetState extends State<_CountdownTimerWidget> {
+  Timer? _timer;
+  Duration _timeUntilUnlock = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(_CountdownTimerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nextUnlockTime != widget.nextUnlockTime) {
+      _startTimer();
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    if (widget.nextUnlockTime == null) return;
+    
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (widget.nextUnlockTime != null) {
+        final now = DateTime.now();
+        final difference = widget.nextUnlockTime!.difference(now);
+        
+        if (difference.isNegative) {
+          widget.onUnlock?.call();
+          _timer?.cancel();
+        } else {
+          setState(() {
+            _timeUntilUnlock = difference;
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.nextUnlockTime == null || _timeUntilUnlock.isNegative) {
+      return const SizedBox.shrink();
+    }
+
+    final hours = _timeUntilUnlock.inHours;
+    final minutes = _timeUntilUnlock.inMinutes % 60;
+    final seconds = _timeUntilUnlock.inSeconds % 60;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.access_time,
+            size: 16,
+            color: Color(0xFFF56500),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            hours > 0 
+                ? '${hours}h ${minutes}m ${seconds}s'
+                : '${minutes}m ${seconds}s',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFF56500),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

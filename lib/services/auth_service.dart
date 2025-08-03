@@ -46,8 +46,6 @@ class AuthService {
     String displayName,
   ) async {
     try {
-      print('👤 DEBUG: Starting user registration...');
-      print('👤 DEBUG: Email: $email, Display name: $displayName');
       
       // Create user account
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -55,11 +53,9 @@ class AuthService {
         password: password,
       );
       
-      print('👤 DEBUG: Firebase user created with UID: ${credential.user!.uid}');
       
       // Update display name
       await credential.user?.updateDisplayName(displayName);
-      print('👤 DEBUG: Display name updated');
       
       // Create user document in Firestore
       final now = DateTime.now();
@@ -76,44 +72,33 @@ class AuthService {
         sentGifts: 0,
       );
       
-      print('👤 DEBUG: Creating user document in Firestore...');
-      print('👤 DEBUG: User creation time: ${userModel.createdAt}');
       
       // CRITICAL FIX: Set fresh trial start date for new user
       final userDocData = userModel.toMap();
       userDocData['trialStartDate'] = FieldValue.serverTimestamp(); // Fresh trial start
       userDocData['hasCompletedOnboarding'] = false; // Ensure onboarding is required
       
-      print('👤 DEBUG: Setting fresh trial start date for new user');
-      print('👤 DEBUG: User doc data keys: ${userDocData.keys.toList()}');
-      print('👤 DEBUG: trialStartDate value: ${userDocData['trialStartDate']}');
-      print('👤 DEBUG: hasCompletedOnboarding value: ${userDocData['hasCompletedOnboarding']}');
       
       await _firestore
           .collection('users')
           .doc(credential.user!.uid)
           .set(userDocData);
       
-      print('👤 DEBUG: User document created successfully');
       
       // Verify the document was created with trial data
       try {
         final verifyDoc = await _firestore.collection('users').doc(credential.user!.uid).get();
         if (verifyDoc.exists) {
           final data = verifyDoc.data();
-          print('👤 DEBUG: Verification - trialStartDate exists: ${data?.containsKey('trialStartDate')}');
-          print('👤 DEBUG: Verification - trialStartDate value: ${data?['trialStartDate']}');
-          print('👤 DEBUG: Verification - hasCompletedOnboarding: ${data?['hasCompletedOnboarding']}');
         } else {
-          print('👤 DEBUG: ERROR - User document was not created!');
+          print('ERROR - User document was not created!');
         }
       } catch (e) {
-        print('👤 DEBUG: Error verifying user document: $e');
+        print('Error verifying user document: $e');
       }
       
       // COORDINATION FIX: Allow small delay for Firestore consistency
       // This ensures SubscriptionService can properly load the new user's trial data
-      print('👤 DEBUG: Allowing brief delay for Firestore consistency...');
       await Future.delayed(Duration(milliseconds: 500));
       
       // IMPORTANT: New users should NOT have hasCompletedOnboarding set in Firestore
@@ -122,7 +107,6 @@ class AuthService {
       // Check for any pending gifts sent to this email
       // We'll handle this in the GiftService instead of here
       
-      print('👤 DEBUG: User registration completed successfully');
       return credential;
     } catch (e) {
       print('Error registering: $e');
