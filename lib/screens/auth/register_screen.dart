@@ -98,9 +98,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFFF8F3),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFF8F3),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -120,10 +120,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 20),
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: 100,
-                  fit: BoxFit.contain,
+                Center(
+                  child: Image.asset(
+                    'assets/images/logo/pumpkin_bites_logo_transparent.png',
+                    height: 200,
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 const SizedBox(height: 30),
                 TextFormField(
@@ -222,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _register,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: const Color(0xFFF56500),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -243,7 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text(
                     'Already have an account? Sign In',
-                    style: TextStyle(color: Colors.orange),
+                    style: TextStyle(color: Color(0xFFF56500)),
                   ),
                 ),
               ],

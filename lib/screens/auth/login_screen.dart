@@ -89,31 +89,12 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo and app name
-                const Icon(
-                  Icons.restaurant,
-                  size: 80,
-                  color: Colors.orange,
+                Image.asset(
+                  'assets/images/logo/pumpkin_bites_logo_transparent.png',
+                  height: 200,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Pumpkin Bites',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Daily bite-sized wisdom for your growth journey',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 
                 // Error message
                 if (_errorMessage != null) ...[
@@ -176,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _signIn,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: const Color(0xFFF56500),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -217,7 +198,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               );
                             },
-                      child: const Text('Sign Up'),
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(color: Color(0xFFF56500)),
+                      ),
                     ),
                   ],
                 ),

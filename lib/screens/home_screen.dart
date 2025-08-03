@@ -815,18 +815,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF8F3),
       appBar: AppBar(
-        title: Text(
-          'Pumpkin Bites',
-          style: GoogleFonts.alice(
-            fontWeight: FontWeight.w600,
-            fontSize: 24,
-            color: const Color(0xFFF56500),
-            letterSpacing: 0.8,
-          ),
+        title: Image.asset(
+          'assets/images/logo/pumpkin_bites_logo_transparent.png',
+          height: 150,
+          fit: BoxFit.contain,
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFF8F3),
         elevation: 2,
         shadowColor: const Color(0xFFF56500).withOpacity(0.1),
         actions: [

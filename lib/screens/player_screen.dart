@@ -549,7 +549,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.bite.title),
         actions: [
           // Favorite button
           IconButton(
@@ -638,15 +637,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         widget.bite.title,
         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
           fontWeight: FontWeight.bold,
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      const SizedBox(height: 4),
-      Text(
-        widget.bite.description,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.grey.shade700,
         ),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
