@@ -28,6 +28,7 @@ class SubscriptionService {
   DateTime? _subscriptionStartDate;
   List<ProductDetails> _products = [];
   bool _isInitialized = false;
+  bool _isInAppPurchaseAvailable = false;
   
   // Stream controllers for state updates
   final StreamController<bool> _subscriptionStatusController = StreamController<bool>.broadcast();
@@ -38,6 +39,7 @@ class SubscriptionService {
   bool get isSubscriptionActive => _isSubscriptionActive;
   bool get isInTrialPeriod => _isInTrialPeriod;
   DateTime? get trialEndDate => _trialEndDate;
+  bool get isSubscriptionFeaturesAvailable => _isInAppPurchaseAvailable;
   int get trialDaysRemaining {
     if (!_isInTrialPeriod || _trialEndDate == null) {
       print('⚠️ DEBUG: trialDaysRemaining = 0 (not in trial period or no end date)');
@@ -95,8 +97,13 @@ class SubscriptionService {
       final bool isAvailable = await _inAppPurchase.isAvailable();
       print('🚀 DEBUG: In-app purchase available: $isAvailable');
       if (!isAvailable) {
-        throw Exception('In-app purchase not available');
+        print('⚠️ DEBUG: In-app purchase not available (likely emulator), continuing with limited functionality');
+        _isInitialized = true;
+        _isInAppPurchaseAvailable = false;
+        return; // Continue without subscription features
       }
+      
+      _isInAppPurchaseAvailable = true;
       
       // Set up auth state listener to reload subscription data when user logs in
       _authSubscription = _auth.authStateChanges().listen((user) async {

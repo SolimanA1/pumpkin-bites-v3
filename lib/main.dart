@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -39,8 +40,31 @@ void main() async {
   ShareService(); // Initialize the sharing singleton
   await SubscriptionService().initialize(); // Initialize subscription service
   
-  // Initialize audio player
-  await _audioService.init();
+  // Initialize audio player with platform-specific handling
+  if (Platform.isAndroid) {
+    // Android: Use direct initialization (AndroidManifest.xml is properly configured)
+    await _audioService.init();
+    print("✅ Android audio service initialized successfully");
+  } else if (Platform.isIOS) {
+    // iOS: Use graceful fallback until iOS configuration is fixed
+    try {
+      await _audioService.init();
+      print("✅ iOS audio service initialized successfully");
+    } catch (e) {
+      print("⚠️ iOS audio service initialization failed: $e");
+      print("📱 iOS will continue with limited audio functionality");
+      // Continue app initialization - iOS audio needs proper configuration
+    }
+  } else {
+    // Web/other platforms: Use graceful fallback
+    try {
+      await _audioService.init();
+      print("✅ Audio service initialized successfully on ${Platform.operatingSystem}");
+    } catch (e) {
+      print("⚠️ Audio service initialization failed on ${Platform.operatingSystem}: $e");
+      print("📱 App will continue with limited audio functionality");
+    }
+  }
   
   runApp(const MyApp());
 }
