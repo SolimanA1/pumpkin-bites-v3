@@ -281,7 +281,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                             child: const Center(
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Color(0xFFF56500),
+                                color: Color(0xFF8B0000),
                               ),
                             ),
                           ),
@@ -335,7 +335,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF56500),
+                      color: const Color(0xFF8B0000),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -410,7 +410,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF56500),
+                            color: const Color(0xFF8B0000),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
@@ -496,7 +496,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF56500),
+                backgroundColor: const Color(0xFF8B0000),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
@@ -507,7 +507,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
     return RefreshIndicator(
       onRefresh: isFavoritesTab ? _refreshFavorites : _loadContent,
-      color: const Color(0xFFF56500),
+      color: const Color(0xFF8B0000),
       child: ListView.builder(
         physics: const BouncingScrollPhysics(),
         itemCount: bites.length,
@@ -531,19 +531,19 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           style: GoogleFonts.crimsonText(
             fontWeight: FontWeight.w600,
             fontSize: 22,
-            color: const Color(0xFFF56500),
+            color: const Color(0xFF8B0000),
             letterSpacing: 0.5,
           ),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 1,
-        shadowColor: const Color(0xFFF56500).withOpacity(0.08),
+        shadowColor: const Color(0xFF8B0000).withOpacity(0.08),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFFF56500),
+          labelColor: const Color(0xFF8B0000),
           unselectedLabelColor: Colors.grey.shade600,
-          indicatorColor: const Color(0xFFF56500),
+          indicatorColor: const Color(0xFF8B0000),
           tabs: const [
             Tab(
               icon: Icon(Icons.library_books),
@@ -559,7 +559,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
               ),
             )
           : _errorMessage.isNotEmpty
@@ -587,7 +587,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         ElevatedButton(
                           onPressed: _loadContent,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF56500),
+                            backgroundColor: const Color(0xFF8B0000),
                           ),
                           child: const Text('Retry'),
                         ),

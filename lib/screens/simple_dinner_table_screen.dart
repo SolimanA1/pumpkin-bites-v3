@@ -261,18 +261,18 @@ class _SimpleReelDinnerTableScreenState extends State<SimpleReelDinnerTableScree
           style: GoogleFonts.crimsonText(
             fontWeight: FontWeight.w600,
             fontSize: 22,
-            color: const Color(0xFFF56500),
+            color: const Color(0xFF8B0000),
             letterSpacing: 0.5,
           ),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 1,
-        shadowColor: const Color(0xFFF56500).withOpacity(0.08),
+        shadowColor: const Color(0xFF8B0000).withOpacity(0.08),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ))
           : _errorMessage.isNotEmpty
               ? _buildErrorView()

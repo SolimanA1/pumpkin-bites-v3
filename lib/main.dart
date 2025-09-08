@@ -115,21 +115,21 @@ class _MyAppState extends State<MyApp> {
       title: 'Pumpkin Bites',
       navigatorKey: navigatorKey,
       theme: ThemeData(
-        // Primary color scheme - Pumpkin Orange
-        primarySwatch: Colors.orange,
-        primaryColor: const Color(0xFFF56500),          // Etsy Orange
-        scaffoldBackgroundColor: const Color(0xFFFFF8F3), // Soft Cream
+        // Primary color scheme - Wine Theme
+        primarySwatch: Colors.red,
+        primaryColor: const Color(0xFF8B0000),          // Deep Wine Red
+        scaffoldBackgroundColor: const Color(0xFFF7F6F4), // Linen Background
         
         // Visual density for modern look
         visualDensity: VisualDensity.adaptivePlatformDensity,
         
         // AppBar theme with Pumpkin styling
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFFFF8F3),           // Soft Cream
+          backgroundColor: Color(0xFFF7F6F4),           // Linen Background
           elevation: 0,
-          iconTheme: IconThemeData(color: Color(0xFFF56500)), // Orange icons
+          iconTheme: IconThemeData(color: Color(0xFF8B0000)), // Wine icons
           titleTextStyle: TextStyle(
-            color: Color(0xFF2D2D2D),                   // Dark text
+            color: Color(0xFF2F2F2F),                   // Charcoal text
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -138,7 +138,7 @@ class _MyAppState extends State<MyApp> {
         // Elevated button theme
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF56500),   // Orange background
+            backgroundColor: const Color(0xFF8B0000),   // Wine background
             foregroundColor: Colors.white,              // White text
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -149,7 +149,7 @@ class _MyAppState extends State<MyApp> {
         // Text button theme
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFFF56500),   // Orange text
+            foregroundColor: const Color(0xFF8B0000),   // Wine text
           ),
         ),
         
@@ -161,7 +161,7 @@ class _MyAppState extends State<MyApp> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color(0xFFF56500),                 // Orange focus border
+              color: Color(0xFF8B0000),                 // Wine focus border
               width: 2,
             ),
           ),
@@ -169,20 +169,20 @@ class _MyAppState extends State<MyApp> {
         
         // Floating action button theme
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFFF56500),           // Orange background
+          backgroundColor: Color(0xFF8B0000),           // Wine background
           foregroundColor: Colors.white,                // White icon
         ),
         
         // Progress indicator theme
         progressIndicatorTheme: const ProgressIndicatorThemeData(
-          color: Color(0xFFF56500),                     // Orange progress
+          color: Color(0xFF8B0000),                     // Wine progress
         ),
         
         // Tab bar theme
         tabBarTheme: const TabBarTheme(
-          labelColor: Color(0xFFF56500),                // Orange selected
+          labelColor: Color(0xFF8B0000),                // Wine selected
           unselectedLabelColor: Color(0xFF8D6E63),      // Brown unselected
-          indicatorColor: Color(0xFFF56500),            // Orange indicator
+          indicatorColor: Color(0xFF8B0000),            // Wine indicator
         ),
       ),
       home: _buildHomeWithFloatingPlayer(),
@@ -265,7 +265,7 @@ class AuthWrapper extends StatelessWidget {
         return const Scaffold(
           body: Center(
             child: CircularProgressIndicator(
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
           ),
         );
@@ -328,7 +328,7 @@ class OnboardingWrapper extends StatelessWidget {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
               ),
             ),
           );
@@ -417,7 +417,7 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
         onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFFF56500),       // Orange when selected
+        selectedItemColor: const Color(0xFF8B0000),       // Wine when selected
         unselectedItemColor: const Color(0xFF8D6E63),   // Warm Brown when unselected
         items: const [
           BottomNavigationBarItem(

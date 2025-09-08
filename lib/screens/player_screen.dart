@@ -261,7 +261,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Reaction saved: $reactionName'),
-          backgroundColor: const Color(0xFFF56500),
+          backgroundColor: const Color(0xFF8B0000),
         ),
       );
     } catch (e) {
@@ -318,7 +318,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Added to favorites'),
-            backgroundColor: Color(0xFFF56500),
+            backgroundColor: Color(0xFF8B0000),
           ),
         );
       }
@@ -555,7 +555,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B0000)),
                     ),
                   )
                 : const Icon(Icons.share),
@@ -565,7 +565,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator(
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ))
           : _isError 
               ? _buildErrorView()
@@ -659,7 +659,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       // Player controls - compact
       Slider(
         value: _progress,
-        activeColor: const Color(0xFFF56500),
+        activeColor: const Color(0xFF8B0000),
         onChanged: (value) {
           if (_duration != null) {
             final position = Duration(
@@ -698,7 +698,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onPressed: _skipBackward,
             icon: const Icon(Icons.replay_10),
             iconSize: 28,
-            color: const Color(0xFFF56500),
+            color: const Color(0xFF8B0000),
           ),
           const SizedBox(width: 12),
           IconButton(
@@ -711,14 +711,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       : Icons.play_circle_filled,
             ),
             iconSize: 48,
-            color: const Color(0xFFF56500),
+            color: const Color(0xFF8B0000),
           ),
           const SizedBox(width: 12),
           IconButton(
             onPressed: _skipForward,
             icon: const Icon(Icons.forward_30),
             iconSize: 28,
-            color: const Color(0xFFF56500),
+            color: const Color(0xFF8B0000),
           ),
         ],
       ),
@@ -740,7 +740,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       
       _isSavingReaction
           ? const Center(child: CircularProgressIndicator(
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ))
           : Center(
               child: Row(
@@ -767,11 +767,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                               color: isSelected
-                                  ? const Color(0xFFF56500).withValues(alpha: 0.1)
+                                  ? const Color(0xFF8B0000).withValues(alpha: 0.1)
                                   : Colors.grey.shade100,
                               border: Border.all(
                                 color: isSelected
-                                    ? const Color(0xFFF56500)
+                                    ? const Color(0xFF8B0000)
                                     : Colors.grey.shade300,
                                 width: isSelected ? 2 : 1,
                               ),
@@ -790,7 +790,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     fontSize: 8,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isSelected 
-                                        ? const Color(0xFFF56500) 
+                                        ? const Color(0xFF8B0000) 
                                         : Colors.grey.shade700,
                                   ),
                                   textAlign: TextAlign.center,
@@ -809,7 +809,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF56500),
+                                color: const Color(0xFF8B0000),
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
@@ -848,20 +848,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 onPressed: _navigateToCommentDetail,
                 icon: const Icon(
                   Icons.people,
-                  color: Color(0xFFF56500),
+                  color: Color(0xFF8B0000),
                   size: 18,
                 ),
                 label: const Text(
                   'Discuss',
                   style: TextStyle(
-                    color: Color(0xFFF56500),
+                    color: Color(0xFF8B0000),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   side: const BorderSide(
-                    color: Color(0xFFF56500),
+                    color: Color(0xFF8B0000),
                     width: 2,
                   ),
                   shape: RoundedRectangleBorder(
@@ -877,7 +877,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 icon: const Icon(Icons.share, size: 18),
                 label: const Text('Share'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF56500),
+                  backgroundColor: const Color(0xFF8B0000),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -903,7 +903,7 @@ class _LoadingPlayerWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B0000)),
           ),
           SizedBox(height: 16),
           Text(
@@ -942,10 +942,10 @@ class _ReactionButtonWidget extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF56500) : Colors.white,
+          color: isSelected ? const Color(0xFF8B0000) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF56500) : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFF8B0000) : Colors.grey.shade300,
           ),
           boxShadow: [
             BoxShadow(
@@ -998,7 +998,7 @@ class _PlayPauseButtonWidget extends StatelessWidget {
       width: 60,
       height: 60,
       decoration: const BoxDecoration(
-        color: Color(0xFFF56500),
+        color: Color(0xFF8B0000),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(

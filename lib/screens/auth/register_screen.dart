@@ -224,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _register,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF56500),
+                    backgroundColor: const Color(0xFF8B0000),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -245,7 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text(
                     'Already have an account? Sign In',
-                    style: TextStyle(color: Color(0xFFF56500)),
+                    style: TextStyle(color: Color(0xFF8B0000)),
                   ),
                 ),
               ],

@@ -27,7 +27,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         leading: widget.isFromTrialExpiration 
           ? null 
           : IconButton(
-              icon: const Icon(Icons.close, color: Color(0xFFF56500)),
+              icon: const Icon(Icons.close, color: Color(0xFF8B0000)),
               onPressed: () => Navigator.pop(context),
             ),
       ),
@@ -41,7 +41,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             const Icon(
               Icons.auto_stories,
               size: 80,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
             const SizedBox(height: 20),
             
@@ -85,7 +85,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _handleSubscribe,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF56500),
+                  backgroundColor: const Color(0xFF8B0000),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -118,7 +118,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               child: const Text(
                 'Restore Purchases',
                 style: TextStyle(
-                  color: Color(0xFFF56500),
+                  color: Color(0xFF8B0000),
                   fontSize: 14,
                 ),
               ),
@@ -171,7 +171,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     children: [
                       const Icon(
                         Icons.check_circle,
-                        color: Color(0xFFF56500),
+                        color: Color(0xFF8B0000),
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -201,14 +201,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFF56500),
-            Color(0xFFFF8A50),
+            Color(0xFF8B0000),
+            Color(0xFFB71C1C),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF56500).withOpacity(0.3),
+            color: const Color(0xFF8B0000).withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -275,7 +275,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Subscription activated successfully!'),
-              backgroundColor: Color(0xFFF56500),
+              backgroundColor: Color(0xFF8B0000),
             ),
           );
           Navigator.pop(context);
@@ -285,7 +285,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Hmm, something didn\'t work quite right. Mind giving it another try?'),
-              backgroundColor: Color(0xFFF56500),
+              backgroundColor: Color(0xFF8B0000),
             ),
           );
         }
@@ -295,7 +295,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Oops! We hit a little snag. Let\'s try that again in a moment.'),
-            backgroundColor: Color(0xFFF56500),
+            backgroundColor: Color(0xFF8B0000),
           ),
         );
       }
@@ -320,7 +320,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Purchases restored successfully!'),
-            backgroundColor: Color(0xFFF56500),
+            backgroundColor: Color(0xFF8B0000),
           ),
         );
       }
@@ -329,7 +329,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Couldn\'t find your previous purchase right now. Try again in a bit!'),
-            backgroundColor: Color(0xFFF56500),
+            backgroundColor: Color(0xFF8B0000),
           ),
         );
       }

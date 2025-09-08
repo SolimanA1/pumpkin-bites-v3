@@ -134,10 +134,10 @@ class _ShareHistoryScreenState extends State<ShareHistoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: const Color(0xFF8B0000).withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.share, color: Colors.orange),
+                  child: const Icon(Icons.share, color: Color(0xFF8B0000)),
                 ),
                 const SizedBox(width: 12),
                 
@@ -200,9 +200,9 @@ class _ShareHistoryScreenState extends State<ShareHistoryScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.05),
+                  color: const Color(0xFF8B0000).withOpacity(0.05),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                  border: Border.all(color: const Color(0xFF8B0000).withOpacity(0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +211,7 @@ class _ShareHistoryScreenState extends State<ShareHistoryScreen> {
                       'Your message:',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.orange,
+                        color: Color(0xFF8B0000),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -237,7 +237,7 @@ class _ShareHistoryScreenState extends State<ShareHistoryScreen> {
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Play'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
+                  backgroundColor: const Color(0xFF8B0000),
                 ),
               ),
             ),

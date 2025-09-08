@@ -49,9 +49,9 @@ class InstagramStoryGenerator extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFFF56500), // Pumpkin orange
-                    Color(0xFFFF8C42), // Lighter orange
-                    Color(0xFFFFB366), // Even lighter
+                    Color(0xFF8B0000), // Deep wine
+                    Color(0xFFB71C1C), // Secondary wine
+                    Color(0xFF6D0000), // Muted wine
                   ],
                 ),
               ),
@@ -100,7 +100,7 @@ class InstagramStoryGenerator extends StatelessWidget {
           child: const Icon(
             Icons.headphones,
             size: 40,
-            color: Color(0xFFF56500),
+            color: Color(0xFF8B0000),
           ),
         ),
         const SizedBox(height: 16),
@@ -142,12 +142,12 @@ class InstagramStoryGenerator extends StatelessWidget {
                 width: 80, // Reduced from 100  
                 height: 80, // Reduced from 100
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF56500).withOpacity(0.1),
+                  color: const Color(0xFF8B0000).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.music_note,
-                  color: Color(0xFFF56500),
+                  color: Color(0xFF8B0000),
                   size: 40,
                 ),
               ),
@@ -168,7 +168,7 @@ class InstagramStoryGenerator extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF56500),
+                  color: const Color(0xFF8B0000),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -190,7 +190,7 @@ class InstagramStoryGenerator extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.graphic_eq,
-                      color: Color(0xFFF56500),
+                      color: Color(0xFF8B0000),
                       size: 28,
                     ),
                     const SizedBox(width: 12),
@@ -198,7 +198,7 @@ class InstagramStoryGenerator extends StatelessWidget {
                       child: Container(
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF56500).withOpacity(0.1),
+                          color: const Color(0xFF8B0000).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: ClipRRect(
@@ -210,7 +210,7 @@ class InstagramStoryGenerator extends StatelessWidget {
                                 width: 3,
                                 height: (15 + (index % 4) * 8).toDouble(),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF56500),
+                                  color: const Color(0xFF8B0000),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -225,7 +225,7 @@ class InstagramStoryGenerator extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.timer,
-                          color: Color(0xFFF56500),
+                          color: Color(0xFF8B0000),
                           size: 20,
                         ),
                         Text(
@@ -309,7 +309,7 @@ class InstagramStoryGenerator extends StatelessWidget {
             children: [
               const Icon(
                 Icons.category,
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -365,7 +365,7 @@ class InstagramStoryGenerator extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF56500),
+                      color: const Color(0xFF8B0000),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(

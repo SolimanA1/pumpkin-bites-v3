@@ -358,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: _isTodaysBiteUnlocked 
-                          ? [const Color(0xFFF56500), const Color(0xFFFFB366)]
+                          ? [const Color(0xFF8B0000), const Color(0xFFB71C1C)]
                           : [Colors.grey.shade400, Colors.grey.shade300],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -376,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           'DAY',
                           style: TextStyle(
                             color: _isTodaysBiteUnlocked 
-                                ? const Color(0xFFF56500) 
+                                ? const Color(0xFF8B0000) 
                                 : Colors.grey.shade600,
                             fontWeight: FontWeight.bold,
                           ),
@@ -393,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _todaysBite!.dayNumber.toString(),
                           style: TextStyle(
                             color: _isTodaysBiteUnlocked 
-                                ? const Color(0xFFF56500) 
+                                ? const Color(0xFF8B0000) 
                                 : Colors.grey.shade600,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
@@ -436,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: const Center(
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Color(0xFFF56500),
+                                    color: Color(0xFF8B0000),
                                   ),
                                 ),
                               ),
@@ -499,7 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF56500),
+                              color: const Color(0xFF8B0000),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
@@ -547,7 +547,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icons.access_time,
                             size: 16,
                             color: _isTodaysBiteUnlocked 
-                                ? const Color(0xFFF56500) 
+                                ? const Color(0xFF8B0000) 
                                 : Colors.grey.shade400,
                           ),
                           const SizedBox(width: 4),
@@ -555,7 +555,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _todaysBite!.formattedDuration,
                             style: TextStyle(
                               color: _isTodaysBiteUnlocked 
-                                  ? const Color(0xFFF56500) 
+                                  ? const Color(0xFF8B0000) 
                                   : Colors.grey.shade400,
                               fontWeight: FontWeight.bold,
                             ),
@@ -567,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: Text(_isTodaysBiteUnlocked ? 'Listen Now' : 'Locked'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _isTodaysBiteUnlocked 
-                                  ? const Color(0xFFF56500) 
+                                  ? const Color(0xFF8B0000) 
                                   : Colors.grey.shade400,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
@@ -670,7 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: const Center(
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.5,
-                                color: Color(0xFFF56500),
+                                color: Color(0xFF8B0000),
                               ),
                             ),
                           ),
@@ -716,13 +716,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF56500).withOpacity(0.1),
+                            color: const Color(0xFF8B0000).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'DAY ${bite.dayNumber}',
                             style: const TextStyle(
-                              color: Color(0xFFF56500),
+                              color: Color(0xFF8B0000),
                               fontWeight: FontWeight.bold,
                               fontSize: 10,
                             ),
@@ -741,7 +741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF56500),
+                              color: const Color(0xFF8B0000),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
@@ -776,7 +776,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => _navigateToPlayer(bite),
                 icon: const Icon(
                   Icons.play_circle_filled,
-                  color: Color(0xFFF56500),
+                  color: Color(0xFF8B0000),
                   size: 32,
                 ),
               ),
@@ -815,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         backgroundColor: const Color(0xFFFFF8F3),
         elevation: 2,
-        shadowColor: const Color(0xFFF56500).withOpacity(0.1),
+        shadowColor: const Color(0xFF8B0000).withOpacity(0.1),
         actions: [
           // Notification icon (can be implemented later)
           IconButton(
@@ -926,14 +926,14 @@ class _EmptyTodaysBiteWidget extends StatelessWidget {
               style: GoogleFonts.crimsonText(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFFF56500),
+                color: const Color(0xFF8B0000),
               ),
             ),
             const SizedBox(height: 16),
             const Icon(
               Icons.schedule,
               size: 48,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -966,7 +966,7 @@ class _LoadingIndicatorWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B0000)),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1004,7 +1004,7 @@ class _ErrorMessageWidget extends StatelessWidget {
             const Icon(
               Icons.error_outline,
               size: 64,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
             const SizedBox(height: 16),
             Text(
@@ -1020,7 +1020,7 @@ class _ErrorMessageWidget extends StatelessWidget {
               ElevatedButton(
                 onPressed: onRetry,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF56500),
+                  backgroundColor: const Color(0xFF8B0000),
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Try Again'),
@@ -1106,9 +1106,9 @@ class _CountdownTimerWidgetState extends State<_CountdownTimerWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: const Color(0xFF8B0000).withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: const Color(0xFF8B0000).withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1116,7 +1116,7 @@ class _CountdownTimerWidgetState extends State<_CountdownTimerWidget> {
           const Icon(
             Icons.access_time,
             size: 16,
-            color: Color(0xFFF56500),
+            color: Color(0xFF8B0000),
           ),
           const SizedBox(width: 4),
           Text(
@@ -1126,7 +1126,7 @@ class _CountdownTimerWidgetState extends State<_CountdownTimerWidget> {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
           ),
         ],

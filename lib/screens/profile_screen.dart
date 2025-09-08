@@ -218,8 +218,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: const Icon(Icons.camera_alt),
               label: const Text('Change Profile Photo'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFF56500),
-                side: const BorderSide(color: Color(0xFFF56500)),
+                foregroundColor: const Color(0xFF8B0000),
+                side: const BorderSide(color: Color(0xFF8B0000)),
               ),
             ),
           ],
@@ -241,7 +241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Profile updated successfully!'),
-                    backgroundColor: Color(0xFFF56500),
+                    backgroundColor: Color(0xFF8B0000),
                   ),
                 );
               } catch (e) {
@@ -305,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFF56500)),
+          border: Border.all(color: const Color(0xFF8B0000)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -314,13 +314,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Icon(
               icon,
               size: 32,
-              color: const Color(0xFFF56500),
+              color: const Color(0xFF8B0000),
             ),
             const SizedBox(height: 8),
             Text(
               label,
               style: const TextStyle(
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -374,7 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const CircularProgressIndicator(
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
               ),
               const SizedBox(height: 16),
               const Text('Uploading profile photo...'),
@@ -415,7 +415,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile photo updated successfully!'),
-            backgroundColor: Color(0xFFF56500),
+            backgroundColor: Color(0xFF8B0000),
           ),
         );
       }
@@ -458,9 +458,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF56500).withOpacity(0.1),
+                color: const Color(0xFF8B0000).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF56500).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFF8B0000).withOpacity(0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -481,7 +481,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return Theme(
                             data: Theme.of(context).copyWith(
                               colorScheme: Theme.of(context).colorScheme.copyWith(
-                                primary: const Color(0xFFF56500),
+                                primary: const Color(0xFF8B0000),
                               ),
                             ),
                             child: child!,
@@ -498,7 +498,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF56500),
+                        color: const Color(0xFF8B0000),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -538,12 +538,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   content: Text(
                     'Daily unlock time set to ${_unlockTime.format(context)}',
                   ),
-                  backgroundColor: const Color(0xFFF56500),
+                  backgroundColor: const Color(0xFF8B0000),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF56500),
+              backgroundColor: const Color(0xFF8B0000),
             ),
             child: const Text('Save'),
           ),
@@ -575,7 +575,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _dailyReminders = value;
                   });
                 },
-                activeColor: const Color(0xFFF56500),
+                activeColor: const Color(0xFF8B0000),
               ),
               // Unlock time setting
               Padding(
@@ -588,8 +588,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: const Icon(Icons.schedule),
                   label: Text('Change unlock time (${_unlockTime.format(context)})'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFF56500),
-                    side: const BorderSide(color: Color(0xFFF56500)),
+                    foregroundColor: const Color(0xFF8B0000),
+                    side: const BorderSide(color: Color(0xFF8B0000)),
                   ),
                 ),
               ),
@@ -607,7 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _commentNotifications = value;
                   });
                 },
-                activeColor: const Color(0xFFF56500),
+                activeColor: const Color(0xFF8B0000),
               ),
             ],
           ),
@@ -623,12 +623,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Notification preferences saved!'),
-                    backgroundColor: Color(0xFFF56500),
+                    backgroundColor: Color(0xFF8B0000),
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF56500),
+                backgroundColor: const Color(0xFF8B0000),
               ),
               child: const Text('Save'),
             ),
@@ -652,7 +652,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
               ),
             ),
             SizedBox(height: 12),
@@ -721,7 +721,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ))
           : _user == null
               ? _buildNotLoggedIn()
@@ -751,7 +751,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pushReplacementNamed(context, '/login');
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF56500),
+              backgroundColor: const Color(0xFF8B0000),
             ),
             child: const Text('LOG IN'),
           ),
@@ -779,7 +779,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: const Color(0xFFF56500).withOpacity(0.2),
+                        backgroundColor: const Color(0xFF8B0000).withOpacity(0.2),
                         backgroundImage: _user?.photoURL?.isNotEmpty == true
                             ? NetworkImage(_user!.photoURL!)
                             : null,
@@ -789,7 +789,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: const TextStyle(
                                   fontSize: 36,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFF56500),
+                                  color: Color(0xFF8B0000),
                                 ),
                               )
                             : null,
@@ -816,7 +816,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         bottom: 0,
                         right: 0,
                         child: Material(
-                          color: const Color(0xFFF56500),
+                          color: const Color(0xFF8B0000),
                           shape: const CircleBorder(),
                           child: InkWell(
                             onTap: _isUploadingPhoto ? null : _showEditProfileDialog,
@@ -859,10 +859,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF56500).withOpacity(0.1),
+                color: const Color(0xFF8B0000).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFFF56500).withOpacity(0.3),
+                  color: const Color(0xFF8B0000).withOpacity(0.3),
                 ),
               ),
               child: Column(
@@ -873,7 +873,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFF56500),
+                      color: Color(0xFF8B0000),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -991,7 +991,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Icon(
           icon,
           size: 24,
-          color: const Color(0xFFF56500),
+          color: const Color(0xFF8B0000),
         ),
         const SizedBox(height: 8),
         Text(
@@ -999,7 +999,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFF56500),
+            color: Color(0xFF8B0000),
           ),
         ),
         Text(
@@ -1038,7 +1038,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 text: value,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFFF56500),
+                  color: Color(0xFF8B0000),
                 ),
               ),
               TextSpan(
@@ -1146,7 +1146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.upgrade,
             title: 'Subscribe for \$2.99/month',
             onTap: () => _navigateToSubscription(),
-            textColor: const Color(0xFFF56500),
+            textColor: const Color(0xFF8B0000),
           );
         }
       },

@@ -40,7 +40,7 @@ class SubscriptionGate extends StatelessWidget {
           const Icon(
             Icons.lock_outline,
             size: 64,
-            color: Color(0xFFF56500),
+            color: Color(0xFF8B0000),
           ),
           const SizedBox(height: 24),
           
@@ -71,7 +71,7 @@ class SubscriptionGate extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () => _navigateToSubscription(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF56500),
+                backgroundColor: const Color(0xFF8B0000),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -94,7 +94,7 @@ class SubscriptionGate extends StatelessWidget {
             child: const Text(
               'Tell Me More',
               style: TextStyle(
-                color: Color(0xFFF56500),
+                color: Color(0xFF8B0000),
                 fontSize: 14,
               ),
             ),
@@ -136,12 +136,12 @@ class TrialStatusWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFFF56500), Color(0xFFFF8A50)],
+              colors: [Color(0xFF8B0000), Color(0xFFB71C1C)],
             ),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFF56500).withOpacity(0.3),
+                color: const Color(0xFF8B0000).withOpacity(0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),

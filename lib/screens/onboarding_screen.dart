@@ -105,7 +105,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       height: 4,
                       decoration: BoxDecoration(
                         color: index <= _currentPage
-                            ? const Color(0xFFF56500)
+                            ? const Color(0xFF8B0000)
                             : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -145,7 +145,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: const Text(
                         'Back',
                         style: TextStyle(
-                          color: Color(0xFFF56500),
+                          color: Color(0xFF8B0000),
                           fontSize: 16,
                         ),
                       ),
@@ -172,7 +172,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ElevatedButton(
                     onPressed: _isSettingTime ? null : _nextPage,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF56500),
+                      backgroundColor: const Color(0xFF8B0000),
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(25),
@@ -216,7 +216,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: const Color(0xFFF56500),
+              color: const Color(0xFF8B0000),
               borderRadius: BorderRadius.circular(30),
             ),
             child: const Icon(
@@ -234,7 +234,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
             textAlign: TextAlign.center,
           ),
@@ -280,13 +280,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: const Color(0xFFF56500).withOpacity(0.1),
+              color: const Color(0xFF8B0000).withOpacity(0.1),
               borderRadius: BorderRadius.circular(25),
             ),
             child: const Icon(
               Icons.calendar_today,
               size: 50,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
           ),
 
@@ -298,7 +298,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
             textAlign: TextAlign.center,
           ),
@@ -344,13 +344,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: const Color(0xFFF56500).withOpacity(0.1),
+              color: const Color(0xFF8B0000).withOpacity(0.1),
               borderRadius: BorderRadius.circular(25),
             ),
             child: const Icon(
               Icons.schedule,
               size: 50,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
           ),
 
@@ -362,7 +362,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFF56500),
+              color: Color(0xFF8B0000),
             ),
             textAlign: TextAlign.center,
           ),
@@ -418,17 +418,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF56500) : Colors.white,
+          color: isSelected ? const Color(0xFF8B0000) : Colors.white,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF56500) : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFF8B0000) : Colors.grey.shade300,
           ),
         ),
         child: Text(
           timeText,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.white : const Color(0xFFF56500),
+            color: isSelected ? Colors.white : const Color(0xFF8B0000),
           ),
         ),
       ),

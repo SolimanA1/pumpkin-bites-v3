@@ -106,13 +106,13 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
                                 widget.bite.thumbnailUrl,
                                 fit: BoxFit.cover,
                                 errorBuilder: (ctx, e, s) => Container(
-                                  color: Colors.orange.shade100,
-                                  child: Icon(Icons.music_note, color: Colors.orange.shade400),
+                                  color: const Color(0xFF8B0000).withOpacity(0.1),
+                                  child: Icon(Icons.music_note, color: const Color(0xFF8B0000)),
                                 ),
                               )
                             : Container(
-                                color: Colors.orange.shade100,
-                                child: Icon(Icons.music_note, color: Colors.orange.shade400),
+                                color: const Color(0xFF8B0000).withOpacity(0.1),
+                                child: Icon(Icons.music_note, color: const Color(0xFF8B0000)),
                               ),
                       ),
                     ),
@@ -179,7 +179,7 @@ class _FloatingPlayerBarState extends State<FloatingPlayerBar> {
                           child: Icon(
                             _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
                             size: 32,
-                            color: const Color(0xFFF56500), // Pumpkin orange
+                            color: const Color(0xFF8B0000), // Deep wine
                           ),
                         ),
                       ),

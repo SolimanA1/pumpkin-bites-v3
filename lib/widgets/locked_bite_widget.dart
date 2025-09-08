@@ -32,12 +32,12 @@ class LockedBiteWidget extends StatelessWidget {
                 // Header
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: const Color(0xFFF56500).withOpacity(0.1),
+                  color: const Color(0xFF8B0000).withOpacity(0.1),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.lock,
-                        color: Color(0xFFF56500),
+                        color: Color(0xFF8B0000),
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -46,7 +46,7 @@ class LockedBiteWidget extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFF56500),
+                          color: Color(0xFF8B0000),
                         ),
                       ),
                       const Spacer(),
@@ -80,7 +80,7 @@ class LockedBiteWidget extends StatelessWidget {
                         color: Colors.grey.shade300,
                         child: const Center(
                           child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF56500)),
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B0000)),
                           ),
                         ),
                       ),
@@ -174,11 +174,11 @@ class LockedBiteWidget extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF56500),
+                            color: const Color(0xFF8B0000),
                             borderRadius: BorderRadius.circular(50),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFF56500).withOpacity(0.3),
+                                color: const Color(0xFF8B0000).withOpacity(0.3),
                                 blurRadius: 15,
                                 offset: const Offset(0, 5),
                               ),
@@ -219,7 +219,7 @@ class LockedBiteWidget extends StatelessWidget {
                           child: ElevatedButton(
                             onPressed: () => _navigateToSubscription(context),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFF56500),
+                              backgroundColor: const Color(0xFF8B0000),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -242,7 +242,7 @@ class LockedBiteWidget extends StatelessWidget {
                           child: const Text(
                             'Learn more',
                             style: TextStyle(
-                              color: Color(0xFFF56500),
+                              color: Color(0xFF8B0000),
                               fontSize: 14,
                             ),
                           ),

@@ -61,8 +61,15 @@ class _ShareDialogState extends State<ShareDialog> {
   
   void _initializePositionAndDuration() {
     // Get the total duration in seconds, default to 5 minutes if not available
-    // This ensures we're ready for production clips
     final double totalDurationSeconds = widget.totalDuration?.inSeconds.toDouble() ?? 300.0;
+    
+    // For very short bites (less than 30 seconds), adjust snippet duration to match
+    if (totalDurationSeconds < 30) {
+      // Use the entire bite duration, but ensure it's at least 5 seconds for the slider
+      _snippetDuration = totalDurationSeconds.clamp(5.0, totalDurationSeconds);
+      _startPosition = 0.0;
+      return;
+    }
     
     // Initialize start position to current playback position
     _startPosition = widget.currentPosition.inSeconds.toDouble();
@@ -72,21 +79,13 @@ class _ShareDialogState extends State<ShareDialog> {
       _startPosition = 0.0;
     } else if (_startPosition > totalDurationSeconds - 30) {
       // Don't start a snippet in the last 30 seconds of content
-      _startPosition = totalDurationSeconds > 30 ? totalDurationSeconds - 30 : 0.0;
+      _startPosition = totalDurationSeconds - 30;
     }
     
-    // Keep the default snippet duration at 30 seconds for production-length clips
+    // Keep the default snippet duration at 30 seconds for normal clips
     // But make sure it doesn't extend beyond the end of the audio
     if (_startPosition + _snippetDuration > totalDurationSeconds) {
-      if (totalDurationSeconds >= 30) {
-        // If total duration is at least 30 seconds, keep snippet at 30 seconds
-        // and adjust the start position
-        _startPosition = totalDurationSeconds - 30;
-      } else {
-        // For very short clips, use the entire clip
-        _snippetDuration = totalDurationSeconds;
-        _startPosition = 0;
-      }
+      _startPosition = totalDurationSeconds - 30;
     }
   }
   
