@@ -1,10 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import 'user_progression_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Lazy initialization to avoid circular dependencies
+  UserProgressionService? _progressionService;
+  UserProgressionService get _userProgression {
+    _progressionService ??= UserProgressionService();
+    return _progressionService!;
+  }
   
   // Create a static instance that can be accessed by other services
   static final AuthService _instance = AuthService._internal();
@@ -100,6 +108,14 @@ class AuthService {
       // COORDINATION FIX: Allow small delay for Firestore consistency
       // This ensures SubscriptionService can properly load the new user's trial data
       await Future.delayed(Duration(milliseconds: 500));
+      
+      // Initialize user progression for sequential release system
+      try {
+        await _userProgression.initializeUserProgression(credential.user!.uid);
+      } catch (e) {
+        print('Error initializing user progression: $e');
+        // Don't fail registration if progression initialization fails
+      }
       
       // IMPORTANT: New users should NOT have hasCompletedOnboarding set in Firestore
       // This should only be set when they actually complete onboarding

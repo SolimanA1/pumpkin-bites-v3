@@ -4,10 +4,18 @@ import 'package:intl/intl.dart';
 import '../models/bite_model.dart';
 import '../models/comment_model.dart';
 import '../models/user_model.dart';
+import 'user_progression_service.dart';
 
 class ContentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Lazy initialization to avoid circular dependencies
+  UserProgressionService? _progressionService;
+  UserProgressionService get _userProgression {
+    _progressionService ??= UserProgressionService();
+    return _progressionService!;
+  }
   
   // Performance optimization: Cache user document to avoid duplicate Firebase calls
   DocumentSnapshot<Map<String, dynamic>>? _cachedUserDoc;
@@ -837,6 +845,72 @@ class ContentService {
     } catch (e) {
       print('Error getting user reactions: $e');
       return {};
+    }
+  }
+
+  // Get current day's bite using UserProgressionService
+  Future<BiteModel?> getCurrentDayBite() async {
+    try {
+      final currentDay = await _userProgression.getCurrentDay();
+      
+      // Get the bite for this specific day number
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isEqualTo: currentDay)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        // If no exact day match, get the highest available day number that's <= user's day
+        final fallbackQuery = await _firestore
+            .collection('bites')
+            .where('dayNumber', isLessThanOrEqualTo: currentDay)
+            .orderBy('dayNumber', descending: true)
+            .limit(1)
+            .get();
+            
+        if (fallbackQuery.docs.isEmpty) {
+          return null;
+        }
+        
+        final doc = fallbackQuery.docs.first;
+        return BiteModel.fromFirestore(doc);
+      }
+      
+      final doc = querySnapshot.docs.first;
+      return BiteModel.fromFirestore(doc);
+    } catch (e) {
+      print('Error getting current day bite: $e');
+      return null;
+    }
+  }
+
+  // Get all available bites for user based on their progression
+  Future<List<BiteModel>> getUserAvailableBites() async {
+    try {
+      final currentDay = await _userProgression.getCurrentDay();
+      
+      // Get bites for days 1 through current day (all unlocked content)
+      final querySnapshot = await _firestore
+          .collection('bites')
+          .where('dayNumber', isLessThanOrEqualTo: currentDay)
+          .orderBy('dayNumber', descending: true) // Most recent first
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) {
+        return [];
+      }
+      
+      final List<BiteModel> userBites = [];
+      for (final doc in querySnapshot.docs) {
+        final bite = BiteModel.fromFirestore(doc);
+        userBites.add(bite);
+      }
+      
+      return userBites;
+    } catch (e) {
+      print('Error getting user available bites: $e');
+      return [];
     }
   }
 }

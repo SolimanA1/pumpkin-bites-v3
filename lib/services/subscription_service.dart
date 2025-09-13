@@ -5,6 +5,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'user_progression_service.dart';
 
 class SubscriptionService {
   static final SubscriptionService _instance = SubscriptionService._internal();
@@ -15,6 +16,13 @@ class SubscriptionService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   late StreamSubscription<User?> _authSubscription;
+  
+  // Lazy initialization to avoid circular dependencies
+  UserProgressionService? _progressionService;
+  UserProgressionService get _userProgression {
+    _progressionService ??= UserProgressionService();
+    return _progressionService!;
+  }
   
   // Product configuration
   static const String monthlyProductId = 'pumpkin_bites_monthly';
