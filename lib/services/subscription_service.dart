@@ -277,7 +277,13 @@ class SubscriptionService {
     // Check if trial is active
     if (_trialStartDate != null && _trialEndDate != null) {
       final isBeforeEndDate = now.isBefore(_trialEndDate!);
+      final wasInTrialPeriod = _isInTrialPeriod;
       _isInTrialPeriod = isBeforeEndDate && !_isSubscriptionActive;
+      
+      // Handle trial expiration
+      if (wasInTrialPeriod && !_isInTrialPeriod && !_isSubscriptionActive) {
+        _handleTrialExpiration();
+      }
     } else {
       _isInTrialPeriod = false;
     }
@@ -299,6 +305,26 @@ class SubscriptionService {
       _trialDaysRemainingController.add(currentTrialDaysRemaining);
       _lastEmittedTrialDaysRemaining = currentTrialDaysRemaining;
     }
+  }
+  
+  // Handle trial expiration by pausing progression
+  Future<void> _handleTrialExpiration() async {
+    try {
+      await _userProgression.handleTrialExpiration();
+      print('Trial expiration handled - progression paused');
+    } catch (e) {
+      print('Error handling trial expiration: $e');
+    }
+  }
+  
+  // Public method to activate subscription (called from purchase flow)
+  Future<void> activateSubscription() async {
+    await _activateSubscription();
+  }
+  
+  // Check if user has active subscription or trial for progression system
+  Future<bool> checkContentAccess() async {
+    return _isSubscriptionActive || _isInTrialPeriod;
   }
   
   Future<void> startFreeTrial() async {
@@ -391,6 +417,14 @@ class SubscriptionService {
     _subscriptionStartDate = DateTime.now();
     
     await _saveSubscriptionState();
+    
+    // Activate progression in sequential release system
+    try {
+      await _userProgression.activateSubscription();
+    } catch (e) {
+      print('Error activating progression: $e');
+    }
+    
     _updateTrialStatus();
   }
   

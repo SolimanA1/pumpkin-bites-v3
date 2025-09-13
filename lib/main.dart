@@ -19,6 +19,7 @@ import 'package:pumpkin_bites_new/services/auth_service.dart';
 import 'package:pumpkin_bites_new/services/audio_player_service.dart';
 import 'package:pumpkin_bites_new/services/share_service.dart';
 import 'package:pumpkin_bites_new/services/subscription_service.dart';
+import 'package:pumpkin_bites_new/services/user_progression_service.dart';
 import 'package:pumpkin_bites_new/models/bite_model.dart';
 import 'package:pumpkin_bites_new/floating_player_bar.dart';
 import 'firebase_options.dart';
@@ -304,6 +305,16 @@ class OnboardingWrapper extends StatelessWidget {
       // Initialize subscription service to load user-specific trial state
       final subscriptionService = SubscriptionService();
       await subscriptionService.initialize();
+      
+      // CRITICAL: Initialize user progression migration for existing users
+      try {
+        final progressionService = UserProgressionService();
+        await progressionService.migrateExistingUser();
+        print('✅ User progression migration completed');
+      } catch (migrationError) {
+        print('Error during user progression migration: $migrationError');
+        // Don't fail app startup if migration fails
+      }
       
       print('🎯 DEBUG: OnboardingWrapper - Trial end date: ${subscriptionService.trialEndDate}');
       print('🎯 DEBUG: OnboardingWrapper - Is subscription active: ${subscriptionService.isSubscriptionActive}');
