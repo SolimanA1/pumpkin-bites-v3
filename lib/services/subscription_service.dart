@@ -326,6 +326,11 @@ class SubscriptionService {
   Future<bool> checkContentAccess() async {
     return _isSubscriptionActive || _isInTrialPeriod;
   }
+
+  // Check if user is currently subscribed (needed by UserProgressionService)
+  Future<bool> isUserSubscribed() async {
+    return _isSubscriptionActive;
+  }
   
   Future<void> startFreeTrial() async {
     if (_trialStartDate != null) {
@@ -415,16 +420,17 @@ class SubscriptionService {
     _isSubscriptionActive = true;
     _isInTrialPeriod = false;
     _subscriptionStartDate = DateTime.now();
-    
+
     await _saveSubscriptionState();
-    
+
     // Activate progression in sequential release system
     try {
       await _userProgression.activateSubscription();
+      print('Subscription activated - progression resumed');
     } catch (e) {
       print('Error activating progression: $e');
     }
-    
+
     _updateTrialStatus();
   }
   

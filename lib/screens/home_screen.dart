@@ -56,19 +56,24 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-      
+
       // Check if user needs progression initialization
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       final data = userDoc.data();
       if (data != null && data['sequentialRelease'] == null) {
         // Existing user needs migration
         final progressionService = UserProgressionService();
-        await progressionService.initializeUserProgression();
+        await progressionService.migrateExistingUser(user.uid);
+        print('Migrated existing user ${user.uid} to sequential release system');
       }
+
+      // Always check trial expiration on app startup
+      final progressionService = UserProgressionService();
+      await progressionService.checkTrialExpiration();
     } catch (e) {
       print('Error initializing progression: $e');
     }
@@ -173,12 +178,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadingMessage = 'Loading content...';
       });
 
+      // Check progression status before loading content
+      final progressionService = UserProgressionService();
+      await progressionService.checkTrialExpiration();
+
       // Performance optimization: Parallel content loading
       BiteModel? todaysBite;
       List<BiteModel> catchUpBites;
-      
+
       // Check if we have a cached today's bite for the current day
-      if (_cachedTodaysBite != null && 
+      if (_cachedTodaysBite != null &&
           _lastUnlockCalculation != null &&
           _lastUnlockCalculation!.day == DateTime.now().day &&
           _lastUnlockCalculation!.month == DateTime.now().month &&
@@ -192,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _contentService.getTodaysBite(),
           _contentService.getCatchUpBites(),
         ]);
-        
+
         todaysBite = results[0] as BiteModel?;
         catchUpBites = results[1] as List<BiteModel>;
         _cachedTodaysBite = todaysBite;

@@ -34,7 +34,7 @@ void main() async {
     final tempDir = await getTemporaryDirectory();
     final testFile = File('${tempDir.path}/upload_test_${DateTime.now().millisecondsSinceEpoch}.txt');
     
-    const testContent = 'This is a test file for Firebase Storage upload verification.\nGenerated at: ${DateTime.now()}\nIf you can read this, the upload worked!';
+    final testContent = 'This is a test file for Firebase Storage upload verification.\nGenerated at: ${DateTime.now()}\nIf you can read this, the upload worked!';
     await testFile.writeAsString(testContent);
     
     print('✅ Test file created:');

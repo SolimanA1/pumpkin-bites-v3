@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'subscription_service.dart';
 
 class UserProgressionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -175,5 +176,41 @@ class UserProgressionService {
     });
     
     print('Subscription activated for user ${user.uid} - progression resumed');
+  }
+
+  // Check and handle trial expiration
+  Future<void> checkTrialExpiration() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    final data = userDoc.data();
+    if (data == null) return;
+
+    final sequentialData = data['sequentialRelease'] as Map<String, dynamic>?;
+    if (sequentialData == null) return;
+
+    final progressionStatus = sequentialData['progressionStatus'] as String?;
+    if (progressionStatus != 'active') return;
+
+    final currentDay = sequentialData['currentDay'] as int? ?? 1;
+    final trialEndStr = sequentialData['trialEndDate'] as String?;
+
+    if (trialEndStr == null) return;
+
+    final trialEndDate = DateTime.parse(trialEndStr);
+    final now = DateTime.now();
+
+    // If trial ended and user is past Day 7, pause progression
+    if (currentDay >= 7 && now.isAfter(trialEndDate)) {
+      // Check if user is actually subscribed
+      final subscriptionService = SubscriptionService();
+      final isSubscribed = await subscriptionService.isUserSubscribed();
+
+      if (!isSubscribed) {
+        await handleTrialExpiration();
+        print('Trial expired for user ${user.uid} - progression paused at day $currentDay');
+      }
+    }
   }
 }

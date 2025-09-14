@@ -54,11 +54,15 @@ class ContentService {
     try {
       final user = _auth.currentUser;
       if (user == null) return null;
-      
+
       // Use UserProgressionService to get current day
       final progressionService = UserProgressionService();
+
+      // Check for trial expiration BEFORE unlocking next bite
+      await progressionService.checkTrialExpiration();
+
       final currentDay = await progressionService.getCurrentDay();
-      
+
       // Check if next bite should unlock
       if (await progressionService.shouldUnlockNextBite()) {
         await progressionService.unlockNextBite();
@@ -66,7 +70,7 @@ class ContentService {
         final updatedDay = await progressionService.getCurrentDay();
         return await _getBiteForDay(updatedDay);
       }
-      
+
       return await _getBiteForDay(currentDay);
     } catch (e) {
       print('Error getting today\'s bite: $e');

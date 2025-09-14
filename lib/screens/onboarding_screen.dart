@@ -48,11 +48,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'unlockMinute': _selectedTime.minute,
         });
 
-        // Initialize user progression
+        // Initialize user progression - INSTANT first bite unlock
         final progressionService = UserProgressionService();
         await progressionService.initializeUserProgression();
-        
-        print('🎉 DEBUG: Updated hasCompletedOnboarding and initialized progression');
+
+        print('Onboarding completed and progression initialized');
       }
 
       if (mounted) {
