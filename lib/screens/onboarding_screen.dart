@@ -39,7 +39,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (user != null) {
         print('🎉 DEBUG: Completing onboarding for user: ${user.uid}');
         
-        // Update onboarding status and save notification time
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -48,18 +47,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'unlockHour': _selectedTime.hour,
           'unlockMinute': _selectedTime.minute,
         });
+
+        // Initialize user progression
+        final progressionService = UserProgressionService();
+        await progressionService.initializeUserProgression();
         
-        print('🎉 DEBUG: Updated hasCompletedOnboarding and unlock time in Firestore');
-        
-        // CRITICAL: Initialize sequential release progression
-        try {
-          final progressionService = UserProgressionService();
-          await progressionService.initializeUserProgression(user.uid);
-          print('🎉 DEBUG: Sequential release progression initialized');
-        } catch (progressionError) {
-          print('Error initializing progression: $progressionError');
-          // Don't fail onboarding if progression initialization fails
-        }
+        print('🎉 DEBUG: Updated hasCompletedOnboarding and initialized progression');
       }
 
       if (mounted) {

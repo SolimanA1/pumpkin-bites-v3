@@ -6,8 +6,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/bite_model.dart';
 import '../services/content_service.dart';
 import '../services/subscription_service.dart';
+import '../services/user_progression_service.dart';
 import '../widgets/subscription_gate.dart';
 import '../widgets/locked_bite_widget.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -43,9 +45,33 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _subscriptionService = SubscriptionService();
+    _initializeProgression();  // Add this line
     _loadContent();
     _startContentRefreshTimer();
     _startCountdownTimer();
+  }
+
+  // Add this new method
+  Future<void> _initializeProgression() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      
+      // Check if user needs progression initialization
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      
+      final data = userDoc.data();
+      if (data != null && data['sequentialRelease'] == null) {
+        // Existing user needs migration
+        final progressionService = UserProgressionService();
+        await progressionService.initializeUserProgression();
+      }
+    } catch (e) {
+      print('Error initializing progression: $e');
+    }
   }
 
   void _startContentRefreshTimer() {

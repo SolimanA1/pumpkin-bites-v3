@@ -309,7 +309,7 @@ class OnboardingWrapper extends StatelessWidget {
       // CRITICAL: Initialize user progression migration for existing users
       try {
         final progressionService = UserProgressionService();
-        await progressionService.migrateExistingUser();
+        await progressionService.migrateExistingUser(user.uid);
         print('✅ User progression migration completed');
       } catch (migrationError) {
         print('Error during user progression migration: $migrationError');

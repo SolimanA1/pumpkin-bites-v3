@@ -55,44 +55,31 @@ class ContentService {
       final user = _auth.currentUser;
       if (user == null) return null;
       
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) return null;
+      // Use UserProgressionService to get current day
+      final progressionService = UserProgressionService();
+      final currentDay = await progressionService.getCurrentDay();
       
-      final data = userDoc.data()!;
-      
-      // Check for sequential release data (new system)
-      final sequentialData = data['sequentialRelease'] as Map<String, dynamic>?;
-      
-      int currentDay;
-      if (sequentialData != null) {
-        // Use new progression system
-        currentDay = sequentialData['currentDay'] as int;
-        
-        // Check if progression is active
-        final progressionStatus = sequentialData['progressionStatus'] as String;
-        if (progressionStatus == 'paused') {
-          return null; // No content available when paused
-        }
-        
-        // Check if next bite should be unlocked
-        await _userProgression.checkAndUnlockNextBite();
-        
-        // Refresh data after potential unlock
-        final updatedDoc = await _firestore.collection('users').doc(user.uid).get();
-        final updatedData = updatedDoc.data()!;
-        final updatedSequentialData = updatedData['sequentialRelease'] as Map<String, dynamic>;
-        currentDay = updatedSequentialData['currentDay'] as int;
-      } else {
-        // Fallback to old system for unmigrated users
-        final userRegistrationDate = (data['createdAt'] as Timestamp).toDate();
-        final now = DateTime.now();
-        currentDay = now.difference(userRegistrationDate).inDays + 1;
+      // Check if next bite should unlock
+      if (await progressionService.shouldUnlockNextBite()) {
+        await progressionService.unlockNextBite();
+        // Recalculate current day after unlock
+        final updatedDay = await progressionService.getCurrentDay();
+        return await _getBiteForDay(updatedDay);
       }
       
-      // Get bite for current day
+      return await _getBiteForDay(currentDay);
+    } catch (e) {
+      print('Error getting today\'s bite: $e');
+      return null;
+    }
+  }
+
+  // Helper method to get bite for specific day
+  Future<BiteModel?> _getBiteForDay(int dayNumber) async {
+    try {
       final querySnapshot = await _firestore
           .collection('bites')
-          .where('dayNumber', isEqualTo: currentDay)
+          .where('dayNumber', isEqualTo: dayNumber)
           .limit(1)
           .get();
 
@@ -100,7 +87,7 @@ class ContentService {
         // Fallback to highest available day
         final fallbackQuery = await _firestore
             .collection('bites')
-            .where('dayNumber', isLessThanOrEqualTo: currentDay)
+            .where('dayNumber', isLessThanOrEqualTo: dayNumber)
             .orderBy('dayNumber', descending: true)
             .limit(1)
             .get();
@@ -111,7 +98,7 @@ class ContentService {
       
       return BiteModel.fromFirestore(querySnapshot.docs.first);
     } catch (e) {
-      print('Error getting today\'s bite: $e');
+      print('Error getting bite for day $dayNumber: $e');
       return null;
     }
   }
@@ -211,18 +198,9 @@ class ContentService {
       final openedBites = data['openedBites'] as List<dynamic>? ?? [];
       final openedBiteIds = openedBites.map((id) => id.toString()).toSet();
       
-      // Get current day (with fallback)
-      int currentDay;
-      final sequentialData = data['sequentialRelease'] as Map<String, dynamic>?;
-      
-      if (sequentialData != null) {
-        currentDay = sequentialData['currentDay'] as int;
-      } else {
-        // Fallback for unmigrated users
-        final userRegistrationDate = (data['createdAt'] as Timestamp).toDate();
-        final now = DateTime.now();
-        currentDay = now.difference(userRegistrationDate).inDays + 1;
-      }
+      // Get current day using progression service
+      final progressionService = UserProgressionService();
+      final currentDay = await progressionService.getCurrentDay();
       
       // Get bites for days 1 through (current day - 1)
       final querySnapshot = await _firestore
@@ -867,7 +845,7 @@ class ContentService {
       print('Getting current day bite using sequential release...');
       
       // Trigger check for next bite unlock
-      await _userProgression.checkAndUnlockNextBite();
+      // Progression checks handled in getTodaysBite method
       
       final currentDay = await _userProgression.getCurrentDay();
       print('User current day: $currentDay');
@@ -915,7 +893,7 @@ class ContentService {
       print('Getting user available bites with progression awareness...');
       
       // Check for progression updates first
-      await _userProgression.checkAndUnlockNextBite();
+      // Progression checks handled in getTodaysBite method
       
       final currentDay = await _userProgression.getCurrentDay();
       print('User current day for available bites: $currentDay');
