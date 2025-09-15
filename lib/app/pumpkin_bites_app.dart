@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/onboarding_screen.dart';
-import '../screens/home_screen.dart';
+import '../screens/home/home_screen_new.dart';
 import '../screens/library_screen.dart';
 import '../screens/simple_dinner_table_screen.dart';
 import '../screens/profile_screen.dart';
