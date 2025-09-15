@@ -8,7 +8,7 @@ import 'content_repository.dart';
 
 /// Implementation that wraps your existing ContentService
 /// This preserves all your working logic while adding clean structure
-class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
+class ContentRepositoryImpl with LoggerMixin implements ContentRepository {
   // Use your existing services through dependency injection
   ContentService get _contentService => getIt<ContentService>();
   UserProgressionService get _progressionService => getIt<UserProgressionService>();
@@ -110,8 +110,10 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     logDebug('Getting bites by category', {'category': category});
     
     try {
-      // Use your existing ContentService logic
-      final bites = await _contentService.getBitesByCategory(category);
+      // TODO: ContentService.getBitesByCategory method doesn't exist yet
+      // Using getAllBites as fallback for now
+      final allBites = await _contentService.getAllBites();
+      final bites = allBites.where((bite) => bite.category == category).toList();
       
       logInfo('Bites loaded by category', {
         'category': category,
@@ -132,8 +134,13 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     logDebug('Searching bites', {'query': query});
     
     try {
-      // Use your existing ContentService logic
-      final bites = await _contentService.searchBites(query);
+      // TODO: ContentService.searchBites method doesn't exist yet
+      // Using getAllBites with filter as fallback for now
+      final allBites = await _contentService.getAllBites();
+      final bites = allBites.where((bite) =>
+        bite.title.toLowerCase().contains(query.toLowerCase()) ||
+        bite.description.toLowerCase().contains(query.toLowerCase())
+      ).toList();
       
       logInfo('Bite search completed', {
         'query': query,
@@ -234,7 +241,8 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     
     try {
       // Use your existing ContentService logic
-      await _contentService.replyToComment(commentId, content);
+      // TODO: ContentService.replyToComment method doesn't exist yet
+      throw UnimplementedError('Reply to comment not implemented yet');
       
       logInfo('Comment reply added', {'comment_id': commentId});
     } catch (error, stackTrace) {
@@ -253,8 +261,9 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
         return _commentCountCache[biteId]!;
       }
       
-      // Use your existing ContentService logic
-      final count = await _contentService.getCommentCount(biteId);
+      // TODO: ContentService.getCommentCount method doesn't exist yet
+      // Return 0 as fallback for now
+      final count = 0;
       
       // Cache the result
       _commentCountCache[biteId] = count;
@@ -277,7 +286,8 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     
     try {
       // Use your existing ContentService logic
-      await _contentService.addReaction(biteId, reactionType);
+      // TODO: ContentService.addReaction method doesn't exist yet
+      throw UnimplementedError('Add reaction not implemented yet');
       
       logInfo('Reaction added', {
         'bite_id': biteId,
@@ -301,7 +311,8 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     
     try {
       // Use your existing ContentService logic
-      await _contentService.removeReaction(biteId, reactionType);
+      // TODO: ContentService.removeReaction method doesn't exist yet
+      throw UnimplementedError('Remove reaction not implemented yet');
       
       logInfo('Reaction removed', {
         'bite_id': biteId,
@@ -319,8 +330,8 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
   @override
   Future<Map<String, int>> getReactionCounts(String biteId) async {
     try {
-      // Use your existing ContentService logic
-      final counts = await _contentService.getReactionCounts(biteId);
+      // TODO: ContentService.getReactionCounts method doesn't exist yet
+      final counts = <String, int>{}; // Empty map as fallback
       
       return counts;
     } catch (error, stackTrace) {
@@ -356,8 +367,9 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     logUserAction('Track bite play', {'bite_id': biteId});
     
     try {
-      // Use your existing ContentService logic
-      await _contentService.trackBitePlay(biteId);
+      // TODO: ContentService.trackBitePlay method doesn't exist yet
+      // Commenting out until method is implemented
+      // await _contentService.trackBitePlay(biteId);
     } catch (error, stackTrace) {
       logError('Failed to track bite play', error, stackTrace, {
         'bite_id': biteId,
@@ -371,8 +383,9 @@ class ContentRepositoryImpl implements ContentRepository with LoggerMixin {
     logUserAction('Track bite completion', {'bite_id': biteId});
     
     try {
-      // Use your existing ContentService logic
-      await _contentService.trackBiteCompletion(biteId);
+      // TODO: ContentService.trackBiteCompletion method doesn't exist yet
+      // Commenting out until method is implemented
+      // await _contentService.trackBiteCompletion(biteId);
     } catch (error, stackTrace) {
       logError('Failed to track bite completion', error, stackTrace, {
         'bite_id': biteId,

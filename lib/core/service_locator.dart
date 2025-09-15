@@ -3,7 +3,7 @@ import '../services/user_progression_service.dart';
 import '../services/content_service.dart';
 import '../services/subscription_service.dart';
 import '../services/snippet_service.dart';
-import '../services/audio_service.dart';
+import '../services/audio_player_service.dart';
 import '../repositories/content_repository.dart';
 import '../repositories/content_repository_impl.dart';
 import '../controllers/home_controller.dart';
@@ -25,7 +25,7 @@ Future<void> setupServiceLocator() async {
     getIt.registerSingleton<ContentService>(ContentService());
     getIt.registerSingleton<SubscriptionService>(SubscriptionService());
     getIt.registerSingleton<SnippetService>(SnippetService());
-    getIt.registerSingleton<AudioService>(AudioService());
+    getIt.registerSingleton<AudioPlayerService>(AudioPlayerService());
     
     // === REPOSITORIES (New clean interfaces) ===
     getIt.registerSingleton<ContentRepository>(ContentRepositoryImpl());

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../screens/auth/onboarding_screen.dart';
+import '../screens/onboarding_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/library_screen.dart';
-import '../screens/dinner_table/simple_reel_dinner_table_screen.dart';
+import '../screens/simple_dinner_table_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/player_screen.dart';
 import '../services/subscription_service.dart';
-import '../widgets/floating_player.dart';
 import '../utils/app_logger.dart';
+import '../models/bite_model.dart';
 
 /// Main application widget - extracted from main.dart
 /// Handles MaterialApp configuration and top-level routing
@@ -46,7 +47,24 @@ class PumpkinBitesApp extends StatelessWidget {
         // Scaffold theme
         scaffoldBackgroundColor: const Color(0xFFFFF8F3),
       ),
-      
+
+      // Add routes for navigation
+      routes: {
+        '/player': (context) {
+          // Get the bite from route arguments
+          final bite = ModalRoute.of(context)?.settings.arguments as BiteModel?;
+          if (bite == null) {
+            // Handle error case - navigate back
+            Navigator.of(context).pop();
+            return const Scaffold(
+              body: Center(child: Text('Error: No bite data provided')),
+            );
+          }
+          return PlayerScreen(bite: bite);
+        },
+        '/library': (context) => const LibraryScreen(),
+      },
+
       home: const _AppScaffold(),
     );
   }
@@ -96,7 +114,7 @@ class _AuthenticatedApp extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          child: FloatingPlayer(),
+          child: const SizedBox.shrink(), // TODO: FloatingPlayerBar needs parameters - temporarily empty
         ),
       ],
     );

@@ -16,6 +16,7 @@ class BiteModel {
   // Additional properties needed by other parts of the app
   final int dayNumber;
   final int commentCount;
+  final bool isFavorite;
   
   // Gift-related fields
   String giftedBy;
@@ -35,6 +36,7 @@ class BiteModel {
     this.isPremiumOnly = false,
     this.dayNumber = 0,
     this.commentCount = 0,
+    this.isFavorite = false,
     this.giftedBy = '',
     this.giftMessage = '',
   });
@@ -79,6 +81,7 @@ class BiteModel {
       isPremiumOnly: data['isPremiumOnly'] ?? false,
       dayNumber: data['dayNumber'] ?? dayNumber,
       commentCount: data['commentCount'] ?? 0,
+      isFavorite: data['isFavorite'] ?? false,
       giftedBy: data['giftedBy'] ?? '',
       giftMessage: data['giftMessage'] ?? '',
     );
@@ -99,6 +102,7 @@ class BiteModel {
       'isPremiumOnly': isPremiumOnly,
       'dayNumber': dayNumber,
       'commentCount': commentCount,
+      'isFavorite': isFavorite,
       'giftedBy': giftedBy,
       'giftMessage': giftMessage,
     };
@@ -119,6 +123,7 @@ class BiteModel {
     bool? isPremiumOnly,
     int? dayNumber,
     int? commentCount,
+    bool? isFavorite,
     String? giftedBy,
     String? giftMessage,
   }) {
@@ -136,6 +141,7 @@ class BiteModel {
       isPremiumOnly: isPremiumOnly ?? this.isPremiumOnly,
       dayNumber: dayNumber ?? this.dayNumber,
       commentCount: commentCount ?? this.commentCount,
+      isFavorite: isFavorite ?? this.isFavorite,
       giftedBy: giftedBy ?? this.giftedBy,
       giftMessage: giftMessage ?? this.giftMessage,
     );

@@ -278,8 +278,8 @@ class ProfileController extends ChangeNotifier with LoggerMixin {
     if (errorStr.contains('network') || errorStr.contains('connection')) {
       return 'Please check your internet connection and try again.';
     } else if (errorStr.contains('auth') || errorStr.contains('permission')) {
-      return 'Authentication error. Please sign in again
-} else if (errorStr.contains('subscription') || errorStr.contains('billing')) {
+      return 'Authentication error. Please sign in again.';
+    } else if (errorStr.contains('subscription') || errorStr.contains('billing')) {
       return 'Subscription error. Please check your payment method.';
     } else {
       return 'Something went wrong. Please try again later.';
