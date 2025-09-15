@@ -22,18 +22,24 @@ class ContentRepositoryImpl with LoggerMixin implements ContentRepository {
   @override
   Future<BiteModel?> getTodaysBite() async {
     logDebug('Getting today\'s bite...');
-    
+
     try {
-      // Use your existing ContentService logic
+      // DIRECT: Use UserProgressionService for unlock logic
+      final currentDay = await _progressionService.getCurrentDay();
+      final shouldUnlock = await _progressionService.shouldUnlockNextBite();
+
+      if (!shouldUnlock) {
+        logDebug('Today\'s bite not yet unlocked');
+        return null;
+      }
+
+      // DIRECT: Use ContentService for the actual bite
       final bite = await _contentService.getTodaysBite();
-      
+
       if (bite != null) {
-        _biteCache[bite.id] = bite;
-        _cacheTimestamps[bite.id] = DateTime.now();
-        
         logInfo('Today\'s bite loaded successfully', {'bite_id': bite.id});
       }
-      
+
       return bite;
     } catch (error, stackTrace) {
       logError('Failed to get today\'s bite', error, stackTrace);
