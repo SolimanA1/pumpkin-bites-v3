@@ -28,10 +28,13 @@ class ContentRepositoryImpl with LoggerMixin implements ContentRepository {
       final currentDay = await _progressionService.getCurrentDay();
       final shouldUnlock = await _progressionService.shouldUnlockNextBite();
 
-      if (!shouldUnlock) {
-        logDebug('Today\'s bite not yet unlocked');
-        return null;
-      }
+      logDebug('Unlock check results', {
+        'currentDay': currentDay,
+        'shouldUnlock': shouldUnlock,
+      });
+
+      // Always get the bite data - the controller handles unlock state
+      // This allows UI to show locked content with countdown
 
       // DIRECT: Use ContentService for the actual bite
       final bite = await _contentService.getTodaysBite();

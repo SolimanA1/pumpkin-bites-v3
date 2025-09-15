@@ -98,31 +98,59 @@ class HomeController extends ChangeNotifier with LoggerMixin {
     final stopwatch = Stopwatch()..start();
     
     try {
-      // Check progression status first
-      await _progressionService.checkTrialExpiration();
-      
-      // Load content in parallel
-      final futures = await Future.wait([
-        _contentRepository.getTodaysBite(),
-        _contentRepository.getCatchUpBites(),
-        _loadUnlockStatus(),
-      ]);
-      
-      _todaysBite = futures[0] as BiteModel?;
-      _catchUpBites = futures[1] as List<BiteModel>;
-      // futures[2] is void (unlock status loading)
-      
+      logDebug('Starting content loading...');
+
+      // Check progression status first with timeout
+      try {
+        await _progressionService.checkTrialExpiration().timeout(Duration(seconds: 5));
+        logDebug('Progression service check completed');
+      } catch (e) {
+        logError('Progression service check failed', e, null);
+        // Continue anyway
+      }
+
+      // Load content with individual timeouts and error handling
+      BiteModel? todaysBite;
+      List<BiteModel> catchUpBites = [];
+
+      try {
+        todaysBite = await _contentRepository.getTodaysBite().timeout(Duration(seconds: 10));
+        logDebug('Today\'s bite loaded: ${todaysBite?.id}');
+      } catch (e) {
+        logError('Failed to load today\'s bite', e, null);
+        todaysBite = null;
+      }
+
+      try {
+        catchUpBites = await _contentRepository.getCatchUpBites().timeout(Duration(seconds: 10));
+        logDebug('Catch-up bites loaded: ${catchUpBites.length}');
+      } catch (e) {
+        logError('Failed to load catch-up bites', e, null);
+        catchUpBites = [];
+      }
+
+      try {
+        await _loadUnlockStatus().timeout(Duration(seconds: 5));
+        logDebug('Unlock status loaded');
+      } catch (e) {
+        logError('Failed to load unlock status', e, null);
+        // Set default unlock status
+        _isTodaysBiteUnlocked = true;
+      }
+
+      _todaysBite = todaysBite;
+      _catchUpBites = catchUpBites;
       _lastContentRefresh = DateTime.now();
       _setState(HomeScreenState.loaded);
       _errorMessage = '';
-      
+
       stopwatch.stop();
       logInfo('Home content loaded successfully', {
         'duration_ms': stopwatch.elapsedMilliseconds,
         'todays_bite_loaded': _todaysBite != null,
         'catchup_count': _catchUpBites.length,
       });
-      
+
     } catch (error, stackTrace) {
       logError('Failed to load home screen content', error, stackTrace);
       _setState(HomeScreenState.error);

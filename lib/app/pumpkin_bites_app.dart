@@ -6,6 +6,7 @@ import '../screens/library_screen.dart';
 import '../screens/simple_dinner_table_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/player_screen.dart';
+import '../screens/auth/login_screen.dart';
 import '../services/subscription_service.dart';
 import '../utils/app_logger.dart';
 import '../models/bite_model.dart';
@@ -92,7 +93,7 @@ class _AppScaffold extends StatelessWidget {
         if (user != null) {
           return const _AuthenticatedApp();
         } else {
-          return const _LoginScreen();
+          return const LoginScreen();
         }
       },
     );
@@ -266,15 +267,4 @@ class _LoadingScreen extends StatelessWidget {
   }
 }
 
-class _LoginScreen extends StatelessWidget {
-  const _LoginScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Login Screen - Import your existing auth screens'),
-      ),
-    );
-  }
-}
+// LoginScreen placeholder removed - now using actual LoginScreen from auth/
