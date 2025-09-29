@@ -44,3 +44,4 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 lib/screens/home/home_screen_new.dart.backup
+lib/screens/home/home_screen_new.dart.backup
