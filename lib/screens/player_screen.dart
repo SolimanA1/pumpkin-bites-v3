@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/bite_model.dart';
 import '../services/audio_player_service.dart';
 import '../services/content_service.dart';
@@ -45,10 +46,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String _selectedReaction = '';
   Map<String, int> _reactionCounts = {};
   final Map<String, String> _reactionOptions = {
-    '🤔': 'Made me think',
-    '🔥': 'Game changer', 
-    '💡': 'Aha moment',
-    '📝': 'Worth noting',
+    '🍷': 'Stained me',
+    '🥂': 'Over drinks material',
+    '✍️': 'Taking notes',
+    '🥃': 'Neat, no chaser',
   };
   
   // Favorite system
@@ -123,19 +124,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       final user = _auth.currentUser;
       if (user == null) return;
-      
+
       final reactionDoc = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('reactions')
           .doc(widget.bite.id)
           .get();
-      
+
       if (reactionDoc.exists && reactionDoc.data() != null) {
         final reaction = reactionDoc.data()?['reaction'] ?? '';
+
+        // Mapping from old emojis to new emojis for migration
+        final emojiMigrationMap = <String, String>{
+          '🤔': '🍷', // Made me think -> Stained me
+          '🔥': '🥂', // Game changer -> Over drinks material
+          '💡': '✍️', // Aha moment -> Taking notes
+          '📝': '🥃', // Worth noting -> Neat, no chaser
+        };
+
+        // Check if user has an old reaction that needs migration
+        String selectedReaction = reaction;
+        if (emojiMigrationMap.containsKey(reaction)) {
+          selectedReaction = emojiMigrationMap[reaction]!;
+        }
+
         if (mounted) {
           setState(() {
-            _selectedReaction = reaction;
+            _selectedReaction = selectedReaction;
           });
         }
       }
@@ -146,37 +162,53 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _loadReactionCounts() async {
     try {
-      
+
       final reactionCounts = <String, int>{
-        '🤔': 0, '🔥': 0, '💡': 0, '📝': 0
+        '🍷': 0, '🥂': 0, '✍️': 0, '🥃': 0
       };
-      
+
+      // Mapping from old emojis to new emojis for migration
+      final emojiMigrationMap = <String, String>{
+        '🤔': '🍷', // Made me think -> Stained me
+        '🔥': '🥂', // Game changer -> Over drinks material
+        '💡': '✍️', // Aha moment -> Taking notes
+        '📝': '🥃', // Worth noting -> Neat, no chaser
+      };
+
       // Get all users and check their reactions for this bite
       // Since reactions are stored as users/{userId}/reactions/{biteId}
       // where biteId is the document ID, we need to iterate through users
       final usersSnapshot = await _firestore.collection('users').get();
-      
+
       for (final userDoc in usersSnapshot.docs) {
         try {
           final reactionDoc = await userDoc.reference
               .collection('reactions')
               .doc(widget.bite.id) // Document ID is the biteId
               .get();
-          
+
           if (reactionDoc.exists) {
             final reactionData = reactionDoc.data();
             final reaction = reactionData?['reaction'] as String?;
-            
-            if (reaction != null && reactionCounts.containsKey(reaction)) {
-              reactionCounts[reaction] = reactionCounts[reaction]! + 1;
+
+            if (reaction != null) {
+              // Check if it's a new emoji directly
+              if (reactionCounts.containsKey(reaction)) {
+                reactionCounts[reaction] = reactionCounts[reaction]! + 1;
+              }
+              // Check if it's an old emoji that needs migration
+              else if (emojiMigrationMap.containsKey(reaction)) {
+                final newEmoji = emojiMigrationMap[reaction]!;
+                reactionCounts[newEmoji] = reactionCounts[newEmoji]! + 1;
+              }
             }
           }
         } catch (e) {
           // Continue to next user
         }
       }
-      
-      
+
+
       if (mounted) {
         setState(() {
           _reactionCounts = reactionCounts;
@@ -187,7 +219,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       // Initialize empty counts on error
       if (mounted) {
         setState(() {
-          _reactionCounts = {'🤔': 0, '🔥': 0, '💡': 0, '📝': 0};
+          _reactionCounts = {'🍷': 0, '🥂': 0, '✍️': 0, '🥃': 0};
         });
       }
     }
@@ -621,41 +653,77 @@ class _PlayerScreenState extends State<PlayerScreen> {
   
   List<Widget> _buildPlayerContent() {
     return [
-      // Title and description - compact
-      Text(
-        widget.bite.title,
-        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      const SizedBox(height: 12),
-      
-      // Image if available - compact sizing
+      // Square thumbnail with soft edges and blended background
       if (widget.bite.thumbnailUrl.isNotEmpty)
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: 16 / 9, // Compact 16:9 for both platforms
-            child: Image.network(
-              widget.bite.thumbnailUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: Icon(Icons.image_not_supported, size: 40),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8F3), // Warm linen background
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Square aspect ratio thumbnail
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24), // Add side padding
+                  child: AspectRatio(
+                    aspectRatio: 1.0, // Perfect square (1:1)
+                    child: Image.network(
+                    widget.bite.thumbnailUrl,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: double.infinity,
+                        color: const Color(0xFFF5F5F5),
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          size: 50,
+                          color: Color(0xFF8B0000),
+                        ),
+                      );
+                    },
+                    ),
                   ),
-                );
-              },
+                ),
+                // Play overlay (preserve existing play button logic)
+                if (!_isPlaying)
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B0000).withOpacity(0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
-      
-      const SizedBox(height: 16),
-            
+      const SizedBox(height: 8),
+      // Title BELOW thumbnail now
+      Text(
+        widget.bite.title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'CrimsonText',
+          color: Color(0xFF2F2F2F),
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+
+      const SizedBox(height: 10),
+
       // Player controls - compact
       Slider(
         value: _progress,
@@ -687,9 +755,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         ),
       ),
-      
-      const SizedBox(height: 12),
-      
+
+      const SizedBox(height: 6),
+
       // Play controls - compact
       Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -722,9 +790,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         ],
       ),
-            
-      const SizedBox(height: 16),
-      
+
+      const SizedBox(height: 10),
+
       // Reaction buttons section - compact and centered
       const Center(
         child: Text(
@@ -735,9 +803,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         ),
       ),
-      
-      const SizedBox(height: 12),
-      
+
+      const SizedBox(height: 8),
+
       _isSavingReaction
           ? const Center(child: CircularProgressIndicator(
               color: Color(0xFF8B0000),
@@ -789,8 +857,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   style: TextStyle(
                                     fontSize: 8,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected 
-                                        ? const Color(0xFF8B0000) 
+                                    color: isSelected
+                                        ? const Color(0xFF8B0000)
                                         : Colors.grey.shade700,
                                   ),
                                   textAlign: TextAlign.center,
@@ -835,9 +903,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 }).toList(),
               ),
             ),
-      
+
       const SizedBox(height: 16),
-            
+
       // Action buttons section - compact side by side for all platforms
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -852,14 +920,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   size: 18,
                 ),
                 label: const Text(
-                  'Discuss',
+                  'Join the Table',
                   style: TextStyle(
                     color: Color(0xFF8B0000),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   side: const BorderSide(
                     color: Color(0xFF8B0000),
                     width: 2,
@@ -875,10 +943,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: ElevatedButton.icon(
                 onPressed: _isSharing ? null : _shareBite,
                 icon: const Icon(Icons.share, size: 18),
-                label: const Text('Share'),
+                label: const Text('Spill This'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B0000),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
